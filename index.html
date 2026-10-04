@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Needle in a Haystack</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌾</text></svg>" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+
+    <div id="hud" class="hidden">
+      <div id="stats-panel" class="panel">
+        <div class="sp-title" id="hs-level">🌾 Tumpukan #1</div>
+        <div class="sp-big"><span id="hs-remaining">10.000.000</span></div>
+        <div class="sp-sub">helai tersisa dari <span id="hs-total">10.000.000</span></div>
+        <div class="bar"><div id="hs-bar"></div></div>
+        <div class="sp-row"><span class="dim">Terkumpul</span><span id="hs-collected">0</span></div>
+        <div class="sp-row money"><span>💰 Uang</span><span id="hs-money">Rp 0</span></div>
+        <div class="sp-row dim small"><span>Penghasilan</span><span id="hs-income">Rp 0/dtk</span></div>
+        <div class="sp-row dim small" id="hs-auto-row"><span>Otomatisasi</span><span id="hs-auto">0 helai/dtk</span></div>
+        <div class="sp-row gold" id="hs-gold-row"><span>📍 Jarum Emas</span><span id="hs-gold">0</span></div>
+      </div>
+
+      <div id="detect-panel">
+        <div id="d-compass" class="panel dwidget hidden">
+          <div class="compass"><div id="d-compass-arrow">➤</div></div>
+          <div class="dlabel">Kompas</div>
+        </div>
+        <div id="d-detector" class="panel dwidget hidden">
+          <div class="dlabel">📟 Detektor <span id="d-mute"></span></div>
+          <div class="signal"><div id="d-signal"></div></div>
+          <div class="dval" id="d-dist">tidak ada sinyal</div>
+        </div>
+        <div id="d-thermal" class="panel dwidget wide hidden"></div>
+        <div id="d-tools" class="panel dwidget wide hidden"></div>
+        <div id="d-fuel" class="panel dwidget hidden">
+          <div class="dlabel">🚀 Bahan bakar</div>
+          <div class="signal fuel"><div id="d-fuel-bar"></div></div>
+        </div>
+        <div id="d-buffs"></div>
+      </div>
+
+      <div id="crosshair"><div></div></div>
+      <div id="target-info"></div>
+      <div id="pops"></div>
+
+      <div id="bottom">
+        <div id="hotbar"></div>
+        <div id="consumable" class="panel"></div>
+      </div>
+      <div id="hints">
+        <b>B</b> Toko · <b>G</b> Pakai item · <b>T</b> Ganti item · <b>1-9</b>/scroll Ganti alat · <b>Esc</b> Menu
+      </div>
+      <div id="fps"></div>
+    </div>
+
+    <div id="toasts"></div>
+
+    <div id="shop" class="overlay hidden">
+      <div class="shop-box">
+        <div class="shop-head">
+          <div class="shop-title">🛒 Toko Pak Tani</div>
+          <div class="shop-wallet">
+            <span id="shop-money">Rp 0</span>
+            <span id="shop-gold" class="gold">📍 0</span>
+          </div>
+          <button class="btn ghost" id="shop-close">Tutup ✕</button>
+        </div>
+        <div class="shop-tabs" id="shop-tabs"></div>
+        <div class="shop-grid" id="shop-grid"></div>
+        <div class="shop-foot dim">Tekan <b>B</b> atau <b>Esc</b> untuk menutup · Klik kanan / Shift+klik untuk beli ×10</div>
+      </div>
+    </div>
+
+    <div id="menu" class="overlay">
+      <div class="menu-box">
+        <div class="logo">
+          <div class="logo-top">🌾 NEEDLE IN A 🌾</div>
+          <div class="logo-main">HAYSTACK</div>
+          <div class="logo-sub" id="menu-sub">Temukan 1 jarum di antara 10.000.000 helai jerami.</div>
+        </div>
+        <div class="menu-actions">
+          <button class="btn primary big" id="btn-play">▶ Main</button>
+          <button class="btn" id="btn-settings">⚙️ Pengaturan</button>
+          <button class="btn" id="btn-help">❓ Cara Main</button>
+        </div>
+        <div id="menu-stats" class="dim small"></div>
+
+        <div id="settings" class="subpanel hidden">
+          <div class="set-row">
+            <label>Kualitas grafis</label>
+            <select id="set-quality">
+              <option value="low">Rendah</option>
+              <option value="medium">Sedang</option>
+              <option value="high">Tinggi</option>
+            </select>
+          </div>
+          <div class="set-row">
+            <label>Sensitivitas mouse <span id="set-sens-val"></span></label>
+            <input type="range" id="set-sens" min="0.2" max="3" step="0.1" />
+          </div>
+          <div class="set-row">
+            <label>Volume <span id="set-vol-val"></span></label>
+            <input type="range" id="set-vol" min="0" max="1" step="0.05" />
+          </div>
+          <div class="set-row">
+            <label>Tampilkan FPS</label>
+            <input type="checkbox" id="set-fps" />
+          </div>
+          <div class="set-row danger">
+            <label>Hapus semua progres</label>
+            <button class="btn danger" id="btn-reset">Reset</button>
+          </div>
+        </div>
+
+        <div id="help" class="subpanel hidden">
+          <p>Di suatu tempat di dalam tumpukan raksasa ini ada <b>satu jarum</b>. Kumpulkan jerami helai demi helai, jual, beli alat yang lebih hebat, lalu temukan jarumnya!</p>
+          <div class="keys">
+            <div><kbd>W A S D</kbd> Jalan</div>
+            <div><kbd>Shift</kbd> Lari</div>
+            <div><kbd>Spasi</kbd> Lompat / Jetpack</div>
+            <div><kbd>Klik kiri</kbd> (tahan) Ambil jerami</div>
+            <div><kbd>1-9</kbd> / <kbd>Scroll</kbd> Ganti alat</div>
+            <div><kbd>B</kbd> Buka toko</div>
+            <div><kbd>G</kbd> Pakai konsumabel</div>
+            <div><kbd>T</kbd> Ganti konsumabel</div>
+            <div><kbd>F</kbd> Senter</div>
+            <div><kbd>X</kbd> Sinar-X</div>
+            <div><kbd>P</kbd> Sonar</div>
+            <div><kbd>M</kbd> Bisukan detektor</div>
+          </div>
+          <p class="dim small">Tips: jerami di atas lubang akan runtuh. Jarum akan berkilau ✨ saat sudah terbuka — klik untuk mengambilnya. Progres tersimpan otomatis di browser.</p>
+        </div>
+      </div>
+    </div>
+
+    <div id="win" class="overlay hidden">
+      <div class="menu-box win-box">
+        <div class="win-icon">📍</div>
+        <div class="logo-main small">JARUM DITEMUKAN!</div>
+        <div id="win-stats"></div>
+        <div id="win-reward" class="gold"></div>
+        <button class="btn primary big" id="btn-prestige">Tumpukan Berikutnya ➜</button>
+        <div class="dim small">Uang &amp; item direset. Upgrade prestige tetap. Tumpukan berikutnya 1,5× lebih besar.</div>
+      </div>
+    </div>
+
+    <div id="loading" class="overlay hidden">
+      <div class="loader">
+        <div class="spinner">🌾</div>
+        <div id="loading-text">Menumpuk jerami...</div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
