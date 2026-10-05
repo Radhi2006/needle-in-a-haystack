@@ -10,7 +10,8 @@ export const LEVEL_STRAW_GROWTH = 1.5;
 
 export const GRAVITY = 20;
 export const COLLAPSE_HZ = 15;
-export const DAY_LENGTH = 600;
+/** Waktu tetap (0..1, lihat Environment.update) — selalu siang, tanpa siklus malam. */
+export const DAY_TIME = 0.17;
 export const AUTOSAVE_SECONDS = 15;
 /** Uang dari ledakan/kipas hanya sebagian (sisanya hancur). */
 export const BLAST_MONEY_RATE = 0.5;

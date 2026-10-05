@@ -74,7 +74,7 @@ export function newState(level: number, seed: number, grid: GridData, needle: Ce
     won: false,
     drone: { radius: 0, cx: 0, cz: 0, timer: 5, scans: 0 },
     automatorAcc: {},
-    dayTime: 0.08,
+    dayTime: 0.17,
     grid,
     savedAt: Date.now(),
   };

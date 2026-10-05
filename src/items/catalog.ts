@@ -97,7 +97,7 @@ export const ITEMS: ItemDef[] = [
   { id: 'lengan', name: 'Lengan Panjang', icon: '🦾', category: 'upgrade', price: 2_000, growth: 2.4, max: 8, desc: '+0,5 m jangkauan per level.' },
   { id: 'dompet', name: 'Dompet Tebal', icon: '👛', category: 'upgrade', price: 1_000, growth: 2.1, max: 20, desc: '+25% uang per helai per level.' },
   { id: 'hoki', name: 'Tas Hoki', icon: '🍀', category: 'upgrade', price: 5_000, growth: 2.3, max: 10, desc: '+2% peluang "genggaman emas" (×5 helai) per level.' },
-  { id: 'senter', name: 'Senter', icon: '🔦', category: 'upgrade', price: 3_000, growth: 1, max: 1, desc: 'Tekan [F] untuk menyalakan. Berguna saat malam.', key: 'F' },
+  { id: 'senter', name: 'Senter', icon: '🔦', category: 'upgrade', price: 3_000, growth: 1, max: 1, desc: 'Tekan [F] untuk menyalakan. Berguna di dalam tumpukan yang gelap.', key: 'F' },
   { id: 'jetpack', name: 'Jetpack', icon: '🚀', category: 'upgrade', price: 400_000, growth: 1, max: 1, desc: 'Tahan [Spasi] di udara untuk terbang.', key: 'Spasi' },
   { id: 'tangki', name: 'Tangki Jetpack', icon: '⛽', category: 'upgrade', price: 600_000, growth: 2.0, max: 5, desc: '+1 detik bahan bakar jetpack per level.' },
   { id: 'pakan', name: 'Pakan Premium', icon: '🌽', category: 'upgrade', price: 50_000, growth: 8, max: 3, desc: 'Hewan makan +100% lebih cepat per level.' },

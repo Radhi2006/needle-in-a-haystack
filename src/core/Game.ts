@@ -23,7 +23,7 @@ import { Particles } from '../world/Particles';
 import { raycastGrid, raySphere, type RayHit } from '../world/raycast';
 import { StrawInstances } from '../world/StrawInstances';
 import {
-  AUTOSAVE_SECONDS, BLAST_MONEY_RATE, CELL, COLLAPSE_HZ, DAY_LENGTH, DEBUG,
+  AUTOSAVE_SECONDS, BLAST_MONEY_RATE, CELL, COLLAPSE_HZ, DAY_TIME, DEBUG,
   cellCapacityForLevel, strawsForLevel,
 } from './config';
 import { compassWord, fmtInt, fmtMoney, fmtShort, fmtTime } from './format';
@@ -668,7 +668,7 @@ export class Game {
     }
 
     // Dunia
-    s.dayTime = (s.dayTime + dt / DAY_LENGTH) % 1;
+    s.dayTime = DAY_TIME;
     this.env?.update(dt, s.dayTime);
     this.flashlight.intensity = this.flashlightOn ? 40 : 0;
     this.chunks?.update(this.player.pos.x, this.player.pos.y, this.player.pos.z, 6);
