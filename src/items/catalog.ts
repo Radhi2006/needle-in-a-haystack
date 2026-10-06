@@ -146,7 +146,7 @@ export const ITEMS: ItemDef[] = [
     desc: 'BOOM (r 5 m). Jarum tahan ledakan, tenang saja.', consumable: { kind: 'blast', radius: 5 } },
   { id: 'termobarik', name: 'Bom Termobarik', icon: '🔥', category: 'consumable', price: 1_200_000, growth: 1, max: MANY,
     desc: 'Bola api raksasa (r 8 m). Jerami di sekitarnya langsung jadi abu.', consumable: { kind: 'blast', radius: 8 } },
-  { id: 'nuklir', name: 'Bom Nuklir Jerami', icon: '☢️', category: 'consumable', price: 50_000_000, growth: 1, max: MANY,
+  { id: 'nuklir', name: 'Bom Nuklir Jerami', icon: '☢️', category: 'consumable', price: 150_000_000, growth: 1, max: MANY,
     desc: 'Dijatuhkan dari langit. Meratakan jerami dalam radius 40 m dari tanah sampai puncak + awan jamur raksasa. Uang 100% (tidak dipotong seperti bom biasa). Larilah!', consumable: { kind: 'nuke', radius: 40 } },
   { id: 'kipas', name: 'Kipas Angin', icon: '🪭', category: 'consumable', price: 12_000, growth: 1, max: MANY,
     desc: 'Meniup lapisan luar jerami dalam radius 4 m.', consumable: { kind: 'fan', radius: 4 } },
