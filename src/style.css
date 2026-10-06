@@ -364,6 +364,32 @@ canvas#game {
   color: var(--dim);
 }
 
+#nuke-flash {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 40;
+  background: radial-gradient(circle at 50% 40%, #ffffff 0%, #fff8dc 45%, #ffcf7a 100%);
+}
+#nuke-flash.on {
+  animation: nuke-flash 2.6s ease-out forwards;
+}
+@keyframes nuke-flash {
+  0% {
+    opacity: 0;
+  }
+  3% {
+    opacity: var(--peak, 1);
+  }
+  20% {
+    opacity: calc(var(--peak, 1) * 0.8);
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
 #toasts {
   position: fixed;
   top: 16px;

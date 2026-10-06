@@ -538,11 +538,20 @@ export class Game {
       const hit = raycastGrid(this.grid, eye, this.dir, 26);
       const to = hit.kind !== 'none' ? hit.point.clone() : eye.clone().addScaledVector(this.dir, 18);
       to.y = Math.max(0.2, to.y);
-      const right = new THREE.Vector3(Math.cos(this.player.yaw), 0, -Math.sin(this.player.yaw));
-      const from = eye.clone().addScaledVector(this.dir, 0.5).addScaledVector(right, 0.3);
-      from.y -= 0.2;
-      this.effects.throwObject(id, from, to, () => this.detonate(def, to));
-      this.sfx.whoosh();
+      if (c.kind === 'nuke') {
+        // dijatuhkan dari langit tepat di titik bidikan
+        const from = to.clone().add(new THREE.Vector3(-6, 70, 3));
+        const dur = 2.6;
+        this.effects.throwObject(id, from, to, () => this.detonate(def, to), { dur, arc: 0, spin: false });
+        this.sfx.whistle(dur);
+        this.hud.toast('☢️ Bom nuklir meluncur dari langit... LARI SEKARANG!', 3500);
+      } else {
+        const right = new THREE.Vector3(Math.cos(this.player.yaw), 0, -Math.sin(this.player.yaw));
+        const from = eye.clone().addScaledVector(this.dir, 0.5).addScaledVector(right, 0.3);
+        from.y -= 0.2;
+        this.effects.throwObject(id, from, to, () => this.detonate(def, to));
+        this.sfx.whoosh();
+      }
       this.view.use();
     }
     if (lvl(s, id) <= 0) this.cycleConsumable();
@@ -552,26 +561,88 @@ export class Game {
   private detonate(def: ItemDef, p: THREE.Vector3): void {
     const c = def.consumable!;
     const r = c.radius ?? 1;
-    let taken = 0;
-    if (c.kind === 'blast') {
-      taken = this.grid.takeSphere(p.x, p.y, p.z, r, Infinity);
-      this.effects.flash(p, r * 1.6);
-      this.particles.burst(p.x, p.y, p.z, Math.min(220, 30 + r * 40), 3 + r * 2, 3 + r);
-      this.sfx.boom(r);
-      const d = this.eyePos(this.tmp).distanceTo(p);
-      this.effects.shake = Math.max(this.effects.shake, Math.max(0, 1 - d / (r * 6)) * Math.min(1, r / 2));
-      if (d < r + 1.5) {
-        const push = this.tmp.copy(this.player.pos).sub(p).setY(0).normalize().multiplyScalar(6);
-        this.player.vel.x += push.x;
-        this.player.vel.z += push.z;
-        this.player.vel.y = Math.max(this.player.vel.y, 5);
+    switch (c.kind) {
+      case 'blast':
+        this.blast(p, r);
+        break;
+      case 'cluster': {
+        this.blast(p, r);
+        const n = c.count ?? 6;
+        const spread = c.spread ?? 4;
+        const from = p.clone().setY(p.y + 0.5);
+        const down = new THREE.Vector3(0, -1, 0);
+        for (let i = 0; i < n; i++) {
+          const a = (i / n) * Math.PI * 2 + Math.random() * 0.6;
+          const d = spread * (0.45 + Math.random() * 0.55);
+          // jatuhkan ke permukaan jerami (atau tanah) di bawah titik sebaran
+          const top = new THREE.Vector3(p.x + Math.cos(a) * d, p.y + spread, p.z + Math.sin(a) * d);
+          const hit = raycastGrid(this.grid, top, down, top.y + 1);
+          const to = hit.kind === 'hay' ? hit.point.clone() : top.clone().setY(0.2);
+          this.effects.throwObject('bomblet', from, to, () => this.blast(to, r), {
+            dur: 0.35 + Math.random() * 0.35,
+            arc: 1.5 + Math.random() * 1.5,
+          });
+        }
+        break;
       }
-    } else if (c.kind === 'fan') {
-      taken = this.grid.takeExposedLayer(p.x, p.y, p.z, r, 0.6);
-      this.particles.burst(p.x, p.y + 0.5, p.z, 160, 7, 4);
-      this.sfx.whoosh();
+      case 'drill': {
+        // ledakan beruntun lurus ke bawah sampai dasar
+        const step = r * 1.1;
+        const n = Math.ceil(p.y / step) + 1;
+        for (let k = 0; k < n; k++) {
+          const q = p.clone().setY(Math.max(0.3, p.y - k * step));
+          this.effects.after(k * 0.13, () => this.blast(q, r, k > 0));
+        }
+        break;
+      }
+      case 'nuke':
+        this.nukeBlast(p, r);
+        break;
+      case 'fan': {
+        const taken = this.grid.takeExposedLayer(p.x, p.y, p.z, r, 0.6);
+        this.particles.burst(p.x, p.y + 0.5, p.z, 160, 7, 4);
+        this.sfx.whoosh();
+        this.gain(taken, BLAST_MONEY_RATE, 'blast');
+        break;
+      }
     }
+  }
+
+  /** Satu ledakan bola radius `r` di `p`. `quiet` = tanpa dorongan pemain (ledakan susulan). */
+  private blast(p: THREE.Vector3, r: number, quiet = false): void {
+    const taken = this.grid.takeSphere(p.x, p.y, p.z, r, Infinity);
+    this.effects.flash(p, r * 1.6);
+    if (r >= 6) this.effects.flash(p, r * 2.4, 0xff6a1a);
+    this.particles.burst(p.x, p.y, p.z, Math.min(220, 30 + r * 40), 3 + r * 2, 3 + r);
+    this.sfx.boom(r);
+    const d = this.eyePos(this.tmp).distanceTo(p);
+    this.effects.shake = Math.max(this.effects.shake, Math.max(0, 1 - d / (r * 6)) * Math.min(1, r / 2));
+    if (!quiet && d < r + 1.5) this.knockback(p, 6, 5);
     this.gain(taken, BLAST_MONEY_RATE, 'blast');
+  }
+
+  private nukeBlast(p: THREE.Vector3, r: number): void {
+    const taken = this.grid.takeSphere(p.x, p.y, p.z, r, Infinity);
+    this.particles.burst(p.x, p.y, p.z, 220, 18, 14);
+    this.sfx.nuke();
+    const eye = this.eyePos(this.tmp);
+    const d = eye.distanceTo(p);
+    this.effects.nuke(p, Math.max(0.5, Math.min(2, 2.2 - d / 60)));
+    // kilatan layar, lebih terang bila menghadap ledakan
+    const facing = this.tmp2.copy(p).sub(eye).normalize().dot(this.dir);
+    this.hud.nukeFlash(Math.max(0.35, Math.min(1, 1.3 - d / 120)) * (0.6 + 0.4 * Math.max(0, facing)));
+    if (d < r * 2.5) this.knockback(p, 22 * (1 - d / (r * 2.5)) + 6, 12);
+    this.gain(taken, BLAST_MONEY_RATE, 'blast');
+    this.hud.toast(`☢️ KABOOOM! ${fmtInt(taken)} helai jerami lenyap dalam sekejap.`, 5000);
+  }
+
+  private knockback(from: THREE.Vector3, force: number, up: number): void {
+    const push = this.tmp.copy(this.player.pos).sub(from).setY(0);
+    if (push.lengthSq() < 1e-6) push.set(1, 0, 0);
+    push.normalize().multiplyScalar(force);
+    this.player.vel.x += push.x;
+    this.player.vel.z += push.z;
+    this.player.vel.y = Math.max(this.player.vel.y, up);
   }
 
   /** Mulai animasi mengambil jarum. */

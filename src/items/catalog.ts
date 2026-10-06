@@ -21,8 +21,16 @@ export interface AutoSpec {
 }
 
 export interface ConsumableSpec {
-  kind: 'blast' | 'fan' | 'buff';
+  /**
+   * blast = satu ledakan, cluster = pecah jadi bom-bom kecil, drill = ledakan beruntun menembus ke bawah,
+   * nuke = dijatuhkan dari langit + awan jamur, fan = tiup lapisan luar, buff = efek sementara.
+   */
+  kind: 'blast' | 'cluster' | 'drill' | 'nuke' | 'fan' | 'buff';
   radius?: number;
+  /** cluster: jumlah bom kecil. */
+  count?: number;
+  /** cluster: radius sebaran bom kecil (m). */
+  spread?: number;
   buff?: BuffId;
   duration?: number;
 }
@@ -124,12 +132,22 @@ export const ITEMS: ItemDef[] = [
   // ───────── KONSUMABEL ─────────
   { id: 'petasan', name: 'Petasan', icon: '🧨', category: 'consumable', price: 600, growth: 1, max: MANY,
     desc: 'Ledakan kecil (r 0,9 m). Separuh jerami hangus.', consumable: { kind: 'blast', radius: 0.9 } },
+  { id: 'granat', name: 'Granat Jerami', icon: '🍍', category: 'consumable', price: 1_800, growth: 1, max: MANY,
+    desc: 'Cabut pin, lempar, tiarap (r 1,2 m).', consumable: { kind: 'blast', radius: 1.2 } },
   { id: 'bom', name: 'Bom Jerami', icon: '💣', category: 'consumable', price: 4_000, growth: 1, max: MANY,
     desc: 'Ledakan sedang (r 1,6 m).', consumable: { kind: 'blast', radius: 1.6 } },
   { id: 'dinamit', name: 'Dinamit', icon: '💥', category: 'consumable', price: 15_000, growth: 1, max: MANY,
     desc: 'Ledakan besar (r 2,6 m).', consumable: { kind: 'blast', radius: 2.6 } },
-  { id: 'bom_raksasa', name: 'Bom Jerami Raksasa', icon: '☢️', category: 'consumable', price: 150_000, growth: 1, max: MANY,
+  { id: 'bom_cluster', name: 'Bom Cluster', icon: '🎆', category: 'consumable', price: 45_000, growth: 1, max: MANY,
+    desc: 'Pecah jadi 8 bom kecil (r 1,5 m) yang menyebar sejauh 5 m.', consumable: { kind: 'cluster', radius: 1.5, count: 8, spread: 5 } },
+  { id: 'bom_penembus', name: 'Bom Penembus', icon: '🎯', category: 'consumable', price: 90_000, growth: 1, max: MANY,
+    desc: 'Bunker buster: ledakan beruntun (r 1,5 m) menembus lurus sampai ke dasar tumpukan.', consumable: { kind: 'drill', radius: 1.5 } },
+  { id: 'bom_raksasa', name: 'Bom Jerami Raksasa', icon: '🎱', category: 'consumable', price: 150_000, growth: 1, max: MANY,
     desc: 'BOOM (r 5 m). Jarum tahan ledakan, tenang saja.', consumable: { kind: 'blast', radius: 5 } },
+  { id: 'termobarik', name: 'Bom Termobarik', icon: '🔥', category: 'consumable', price: 1_200_000, growth: 1, max: MANY,
+    desc: 'Bola api raksasa (r 8 m). Jerami di sekitarnya langsung jadi abu.', consumable: { kind: 'blast', radius: 8 } },
+  { id: 'nuklir', name: 'Bom Nuklir Jerami', icon: '☢️', category: 'consumable', price: 1_000_000_000, growth: 1, max: MANY,
+    desc: 'Dijatuhkan dari langit. Melenyapkan jerami dalam radius 14 m + awan jamur. Larilah setelah melempar!', consumable: { kind: 'nuke', radius: 14 } },
   { id: 'kipas', name: 'Kipas Angin', icon: '🪭', category: 'consumable', price: 12_000, growth: 1, max: MANY,
     desc: 'Meniup lapisan luar jerami dalam radius 4 m.', consumable: { kind: 'fan', radius: 4 } },
   { id: 'r_cepat', name: 'Ramuan Kecepatan', icon: '⚡', category: 'consumable', price: 2_000, growth: 1, max: MANY,

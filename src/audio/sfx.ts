@@ -82,6 +82,40 @@ export class Sfx {
     this.tone(90, 0.4 + size * 0.1, 'sine', 0.5, 0, 35);
   }
 
+  /** Siulan bom yang jatuh dari langit. */
+  whistle(dur: number): void {
+    this.tone(1900, dur, 'sine', 0.07, 0, 380);
+  }
+
+  /** Dentuman nuklir: retakan keras lalu gemuruh panjang yang meredup. */
+  nuke(): void {
+    if (!this.ctx || !this.noise || !this.master) return;
+    const t = this.ctx.currentTime;
+    const src = this.ctx.createBufferSource();
+    src.buffer = this.noise;
+    src.loop = true;
+    const f = this.ctx.createBiquadFilter();
+    f.type = 'lowpass';
+    f.Q.value = 0.7;
+    f.frequency.setValueAtTime(2400, t);
+    f.frequency.exponentialRampToValueAtTime(160, t + 1.5);
+    f.frequency.exponentialRampToValueAtTime(70, t + 7);
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.95, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.5, t + 1.2);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 7.5);
+    src.connect(f).connect(g).connect(this.master);
+    src.start(t);
+    src.stop(t + 7.6);
+    this.tone(70, 4, 'sine', 0.7, 0, 22);
+    this.tone(45, 5, 'triangle', 0.35, 0.3, 20);
+    // gemuruh susulan
+    for (const d of [0.6, 1.3, 2.2]) {
+      setTimeout(() => this.noiseBurst(180, 0.5, 0.35, 1.2, 'lowpass'), d * 1000);
+    }
+  }
+
   whoosh(): void {
     this.noiseBurst(900, 0.6, 0.3, 0.6, 'lowpass');
   }

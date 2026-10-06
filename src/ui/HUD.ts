@@ -28,6 +28,15 @@ export class HUD {
     this.root.classList.toggle('hidden', !v);
   }
 
+  /** Kilatan putih menyilaukan satu layar penuh (ledakan nuklir). strength 0..1 */
+  nukeFlash(strength: number): void {
+    const el = $('nuke-flash');
+    el.style.setProperty('--peak', strength.toFixed(2));
+    el.classList.remove('on');
+    void el.offsetWidth; // paksa reflow agar animasi bisa diulang
+    el.classList.add('on');
+  }
+
   addIncome(money: number): void {
     this.incomeBuckets[this.incomeBuckets.length - 1] += money;
   }
