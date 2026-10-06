@@ -59,7 +59,7 @@ export class MushroomCloud {
     const glow = getSoftGlowTexture();
     const add = (part: Part, n: number) => {
       for (let i = 0; i < n; i++) {
-        const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: smoke, transparent: true, depthWrite: false, opacity: 0 }));
+        const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: smoke, transparent: true, depthWrite: false, opacity: 0, fog: false }));
         sprite.material.rotation = Math.random() * Math.PI * 2;
         this.group.add(sprite);
         this.puffs.push({
@@ -89,11 +89,11 @@ export class MushroomCloud {
 
     this.shockDome = new THREE.Mesh(
       new THREE.SphereGeometry(1, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2),
-      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }),
+      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide, fog: false }),
     );
     this.shockRing = new THREE.Mesh(
       new THREE.RingGeometry(0.86, 1, 72),
-      new THREE.MeshBasicMaterial({ color: 0xfff0d2, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }),
+      new THREE.MeshBasicMaterial({ color: 0xfff0d2, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide, fog: false }),
     );
     this.shockRing.rotation.x = -Math.PI / 2;
     this.shockRing.position.y = 0.15;

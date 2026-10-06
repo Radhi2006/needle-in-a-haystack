@@ -622,17 +622,21 @@ export class Game {
   }
 
   private nukeBlast(p: THREE.Vector3, r: number): void {
-    const taken = this.grid.takeSphere(p.x, p.y, p.z, r, Infinity);
-    this.particles.burst(p.x, p.y, p.z, 220, 18, 14);
+    // Kawah setengah bola berpusat di tanah tepat di bawah titik jatuh (meratakan dari dasar
+    // sampai puncak), plus bola di titik jatuh untuk tumpukan yang lebih tinggi dari radiusnya.
+    let taken = this.grid.takeSphere(p.x, 0, p.z, r, Infinity);
+    if (p.y > r * 0.5) taken += this.grid.takeSphere(p.x, p.y, p.z, r * 0.6, Infinity);
+    this.particles.burst(p.x, p.y, p.z, 220, 30, 24);
     this.sfx.nuke();
     const eye = this.eyePos(this.tmp);
     const d = eye.distanceTo(p);
-    this.effects.nuke(p, Math.max(0.5, Math.min(2, 2.2 - d / 60)));
+    this.effects.nuke(p, Math.max(0.5, Math.min(2, 2.2 - d / (r * 4))), r / 14);
     // kilatan layar, lebih terang bila menghadap ledakan
     const facing = this.tmp2.copy(p).sub(eye).normalize().dot(this.dir);
     this.hud.nukeFlash(Math.max(0.35, Math.min(1, 1.3 - d / 120)) * (0.6 + 0.4 * Math.max(0, facing)));
-    if (d < r * 2.5) this.knockback(p, 22 * (1 - d / (r * 2.5)) + 6, 12);
-    this.gain(taken, BLAST_MONEY_RATE, 'blast');
+    if (d < r * 1.5) this.knockback(p, 26 * (1 - d / (r * 1.5)) + 6, 14);
+    // nuklir dibayar penuh, tidak dipotong BLAST_MONEY_RATE
+    this.gain(taken, 1, 'blast');
     this.hud.toast(`☢️ KABOOOM! ${fmtInt(taken)} helai jerami lenyap dalam sekejap.`, 5000);
   }
 

@@ -69,7 +69,7 @@ export class Effects {
     this.group.add(this.droneZone);
 
     // Selalu ada di scene (intensitas 0) supaya shader tidak dikompilasi ulang saat nuklir meledak.
-    this.nukeLight = new THREE.PointLight(0xffa860, 0, 140, 0.4);
+    this.nukeLight = new THREE.PointLight(0xffa860, 0, 420, 0.4);
     this.group.add(this.nukeLight);
   }
 
@@ -166,9 +166,9 @@ export class Effects {
     this.timers.push({ t: delay, fn });
   }
 
-  /** Awan jamur nuklir di `pos`. `rumble` = kekuatan guncangan kamera (0..2). */
-  nuke(pos: THREE.Vector3, rumble: number): void {
-    const cloud = new MushroomCloud(pos);
+  /** Awan jamur nuklir di `pos`. `rumble` = kekuatan guncangan kamera (0..2), `scale` = ukuran awan. */
+  nuke(pos: THREE.Vector3, rumble: number, scale = 1): void {
+    const cloud = new MushroomCloud(pos, scale);
     this.nukes.push(cloud);
     this.group.add(cloud.group);
     this.rumbleT = 0;
