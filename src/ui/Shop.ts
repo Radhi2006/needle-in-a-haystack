@@ -1,7 +1,7 @@
 import { fmtInt, fmtMoney, fmtShort } from '../core/format';
 import type { Game } from '../core/Game';
 import { CATEGORY_LABEL, ITEMS, type Category, type ItemDef } from '../items/catalog';
-import { automatorMult, bulkPrice, lvl } from '../items/stats';
+import { automatorMult, buffOn, bulkPrice, lvl } from '../items/stats';
 
 const $ = (id: string) => document.getElementById(id)!;
 const TABS: Category[] = ['tool', 'detector', 'upgrade', 'automator', 'consumable', 'prestige'];
@@ -59,7 +59,7 @@ export class Shop {
 
   render(): void {
     $('shop-tabs').innerHTML = TABS.map(
-      (t) => `<button class="tab ${t === this.tab ? 'on' : ''}" data-tab="${t}">${CATEGORY_LABEL[t]}</button>`,
+      (t) => `<button class="tab ${t === this.tab ? 'on' : ''}" data-tab="${t}">${CATEGORY_LABEL[t]}${t === 'consumable' && buffOn(this.game.state, 'diskon') ? ' 🔥' : ''}</button>`,
     ).join('');
     const items = ITEMS.filter((i) => i.category === this.tab);
     $('shop-grid').innerHTML = items.map((d) => this.card(d)).join('');
@@ -117,7 +117,7 @@ export class Shop {
         break;
       }
       case 'consumable':
-        lvlText = `Punya: ${fmtInt(owned)}`;
+        lvlText = `Punya: ${fmtInt(owned)}${buffOn(s, 'diskon') ? ' · <span class="sale">DISKON 50%</span>' : ''}`;
         btns = buyBtn(1) + buyBtn(10, '×10');
         break;
     }

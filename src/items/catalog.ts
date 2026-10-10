@@ -1,5 +1,5 @@
 export type Category = 'tool' | 'detector' | 'upgrade' | 'automator' | 'consumable' | 'prestige';
-export type BuffId = 'speed' | 'rate' | 'money' | 'luck';
+export type BuffId = 'speed' | 'rate' | 'money' | 'luck' | 'golden' | 'diskon';
 
 export interface ToolSpec {
   /** Helai maksimum per sekali ambil. */
@@ -81,7 +81,7 @@ export const ITEMS: ItemDef[] = [
   { id: 'detektor', name: 'Detektor Logam', icon: '📟', category: 'detector', price: 150_000, growth: 1, max: 1,
     desc: 'Bunyi bip makin cepat jika jarum dalam radius 8 m.', key: 'M' },
   { id: 'magnet_kecil', name: 'Magnet Kecil', icon: '🧲', category: 'detector', price: 400_000, growth: 1, max: 1,
-    desc: 'Jarum langsung tertarik ke kamu bila jaraknya ≤ 1,5 m — walau masih tertimbun.' },
+    desc: 'Jarum langsung tertarik ke kamu bila jaraknya ≤ 1,5 m — walau masih tertimbun. Juga menarik harta karun yang tersembul.' },
   { id: 'detektor_pro', name: 'Detektor Logam Pro', icon: '📡', category: 'detector', price: 1_500_000, growth: 1, max: 1,
     desc: 'Jangkauan 16 m dan menampilkan perkiraan jarak.' },
   { id: 'sonar', name: 'Sonar Ping', icon: '🔊', category: 'detector', price: 4_000_000, growth: 1, max: 1,
@@ -94,6 +94,8 @@ export const ITEMS: ItemDef[] = [
     desc: 'Tekan [X]: lihat jarum tembus jerami dalam radius 7 m.', key: 'X' },
   { id: 'termal', name: 'Peta Termal', icon: '🌡️', category: 'detector', price: 70_000_000, growth: 1, max: 1,
     desc: 'Menampilkan arah mata angin dan ketinggian jarum di HUD.' },
+  { id: 'peta_harta', name: 'Peta Harta Karun', icon: '🗺️', category: 'detector', price: 8_000, growth: 1, max: 1,
+    desc: 'Puluhan harta karun ikut tertimbun di tumpukan. Peta ini menunjukkan jarak & arah harta terdekat di HUD.' },
   { id: 'nenek', name: 'Ramalan Nenek', icon: '👵', category: 'detector', price: 5_000, growth: 1.5, max: MANY,
     desc: 'Nenek memberi petunjuk. Biasanya benar. Biasanya.' },
 
@@ -108,6 +110,7 @@ export const ITEMS: ItemDef[] = [
   { id: 'senter', name: 'Senter', icon: '🔦', category: 'upgrade', price: 3_000, growth: 1, max: 1, desc: 'Tekan [F] untuk menyalakan. Berguna di dalam tumpukan yang gelap.', key: 'F' },
   { id: 'jetpack', name: 'Jetpack', icon: '🚀', category: 'upgrade', price: 400_000, growth: 1, max: 1, desc: 'Tahan [Spasi] di udara untuk terbang.', key: 'Spasi' },
   { id: 'tangki', name: 'Tangki Jetpack', icon: '⛽', category: 'upgrade', price: 600_000, growth: 2.0, max: 5, desc: '+1 detik bahan bakar jetpack per level.' },
+  { id: 'jimat', name: 'Jimat Keberuntungan', icon: '🧿', category: 'upgrade', price: 20_000, growth: 3, max: 5, desc: 'Event acak (hujan meteor, puting beliung, jam emas, ...) datang 15% lebih sering per level.' },
   { id: 'pakan', name: 'Pakan Premium', icon: '🌽', category: 'upgrade', price: 50_000, growth: 8, max: 3, desc: 'Hewan makan +100% lebih cepat per level.' },
   { id: 'oli', name: 'Oli Super', icon: '🛢️', category: 'upgrade', price: 2_000_000, growth: 6, max: 3, desc: 'Pekerja & mesin +100% lebih cepat per level.' },
 
@@ -166,6 +169,7 @@ export const ITEMS: ItemDef[] = [
   { id: 'p_modal', name: 'Modal Awal', icon: '💼', category: 'prestige', price: 2, growth: 1.8, max: 6, desc: 'Mulai tumpukan baru dengan Rp 1.000 × 10^(level-1).' },
   { id: 'p_insting', name: 'Insting Pencari', icon: '👃', category: 'prestige', price: 3, growth: 2, max: 3, desc: 'Mulai dengan Kompas (Lv1), + Detektor (Lv2), + Detektor Pro (Lv3).' },
   { id: 'p_alat', name: 'Gudang Warisan', icon: '🧰', category: 'prestige', price: 2, growth: 1.8, max: 5, desc: 'Mulai dengan alat yang lebih baik (1 tingkat per level).' },
+  { id: 'p_pemburu', name: 'Mata Pemburu Harta', icon: '🏴‍☠️', category: 'prestige', price: 2, growth: 1.8, max: 5, desc: '+25% jumlah harta karun di tiap tumpukan & isinya +25% lebih banyak per level.' },
   { id: 'p_hemat', name: 'Pelanggan Setia', icon: '🏷️', category: 'prestige', price: 2, growth: 2, max: 3, desc: 'Konsumabel 15% lebih murah per level.' },
 ];
 

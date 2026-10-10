@@ -2,16 +2,18 @@ import * as THREE from 'three';
 import { Automators } from '../automation/Automators';
 import { Sfx } from '../audio/sfx';
 import { Detection } from '../detection/Detection';
+import { Events } from '../events/Events';
 import { CONSUMABLES, ITEM_BY_ID, TOOLS, type ItemDef } from '../items/catalog';
 import {
   amountMult, automationRate, bulkPrice, critChance, critMult, jetFuel, jumpMult, lvl,
-  moneyMult, ownedTools, reach, speedMult, toolRateMult,
+  moneyMult, ownedTools, reach, speedMult, toolRateMult, treasureMult,
 } from '../items/stats';
 import { PlayerController } from '../player/PlayerController';
 import { ViewModel } from '../player/ViewModel';
 import { deleteSave, loadGame, loadSettings, saveGame } from '../save/SaveManager';
 import { HUD } from '../ui/HUD';
 import { Menu } from '../ui/Menu';
+import { generateTreasures, treasureCount, TreasureHunt } from '../treasure/Treasures';
 import { Shop } from '../ui/Shop';
 import { ChunkManager } from '../world/ChunkManager';
 import { Effects } from '../world/Effects';
@@ -20,6 +22,7 @@ import { createHayMaterial } from '../world/hayMaterial';
 import { HaystackGrid } from '../world/HaystackGrid';
 import { NeedleView } from '../world/Needle';
 import { Particles } from '../world/Particles';
+import { Pickups, type Pickup } from '../world/Pickups';
 import { raycastGrid, raySphere, type RayHit } from '../world/raycast';
 import { StrawInstances } from '../world/StrawInstances';
 import {
@@ -44,10 +47,13 @@ export class Game {
   readonly effects = new Effects();
   readonly particles = new Particles();
   readonly needle = new NeedleView();
+  readonly pickups = new Pickups();
   readonly hud: HUD;
   readonly shop: Shop;
   readonly menu: Menu;
   readonly detection: Detection;
+  readonly treasures: TreasureHunt;
+  readonly events: Events;
   readonly view: ViewModel;
   readonly flashlight: THREE.SpotLight;
   readonly settings: Settings;
@@ -109,6 +115,9 @@ export class Game {
     this.shop = new Shop(this);
     this.menu = new Menu(this);
     this.detection = new Detection(this);
+    this.treasures = new TreasureHunt(this);
+    this.events = new Events(this);
+    this.scene.add(this.pickups.group, this.events.group);
 
     this.input.onLockChange = (locked) => this.onLockChange(locked);
     window.addEventListener('resize', () => this.onResize());
@@ -140,6 +149,7 @@ export class Game {
   private generateRun(level: number, seed: number, prev?: GameState): GameState {
     const { grid, needle } = HaystackGrid.generate(seed, strawsForLevel(level), cellCapacityForLevel(level));
     const st = newState(level, seed, grid.toData(), needle, prev);
+    st.treasures = generateTreasures(grid, seed, treasureCount(level, treasureMult(st)), needle);
     this.applyStartPerks(st, true);
     return st;
   }
@@ -166,6 +176,12 @@ export class Game {
     this.grid = new HaystackGrid(st.grid);
     st.grid = this.grid.toData();
     this.baseRadius = ((this.grid.sx - 6) / 2.28) * CELL;
+    // save lama belum punya harta karun
+    if (!st.treasures) st.treasures = generateTreasures(this.grid, st.seed, treasureCount(st.level, treasureMult(st)), st.needle);
+    st.stats.treasures ??= 0;
+    this.pickups.clear();
+    this.treasures.reset();
+    this.events.reset();
 
     this.env = new Environment(this.scene, this.baseRadius, st.seed);
     this.env.hemi.layers.enable(1);
@@ -608,8 +624,8 @@ export class Game {
     }
   }
 
-  /** Satu ledakan bola radius `r` di `p`. `quiet` = tanpa dorongan pemain (ledakan susulan). */
-  private blast(p: THREE.Vector3, r: number, quiet = false): void {
+  /** Satu ledakan bola radius `r` di `p`. `quiet` = tanpa dorongan pemain (ledakan susulan). Mengembalikan jumlah helai. */
+  blast(p: THREE.Vector3, r: number, quiet = false): number {
     const taken = this.grid.takeSphere(p.x, p.y, p.z, r, Infinity);
     this.effects.flash(p, r * 1.6);
     if (r >= 6) this.effects.flash(p, r * 2.4, 0xff6a1a);
@@ -619,6 +635,7 @@ export class Game {
     this.effects.shake = Math.max(this.effects.shake, Math.max(0, 1 - d / (r * 6)) * Math.min(1, r / 2));
     if (!quiet && d < r + 1.5) this.knockback(p, 6, 5);
     this.gain(taken, BLAST_MONEY_RATE, 'blast');
+    return taken;
   }
 
   private nukeBlast(p: THREE.Vector3, r: number): void {
@@ -662,6 +679,7 @@ export class Game {
     const s = this.state;
     s.won = true;
     this.needleCollecting = false;
+    this.events.reset();
     this.needle.group.visible = false;
     const reward = 1 + s.level;
     s.gold += reward;
@@ -717,9 +735,16 @@ export class Game {
       this.collapseAcc = 0;
       this.grid.tickCollapse(900);
       this.sinkNeedle();
+      this.treasures.tick();
     }
 
     this.updateNeedle(dt, playing);
+    if (!s.won && (this.phase === 'playing' || this.phase === 'shop')) {
+      this.events.update(dt);
+      const body = this.tmp.copy(this.player.pos);
+      body.y += 0.9;
+      this.pickups.update(dt, body, Math.max(1.6, this.detection.magnetRange), playing);
+    }
     if (!s.won) {
       this.automators?.update(dt);
       this.detection.update(dt);
@@ -807,6 +832,7 @@ export class Game {
       s.gold += 5;
       this.hud.toast('[debug] +uang +5 jarum emas');
     }
+    if (DEBUG && inp.hit('KeyE')) this.events.triggerNext();
   }
 
   /** Jarum ikut turun jika jerami di bawahnya habis. */
@@ -863,11 +889,20 @@ export class Game {
       const t = raySphere(eye, this.dir, this.needle.world, 0.25);
       if (t <= r && (this.hit.kind !== 'hay' || t <= this.hit.dist + 0.75)) needleHit = true;
     }
+    let pick: Pickup | null = null;
+    if (!needleHit) {
+      const ph = this.pickups.raycast(eye, this.dir, r + 1);
+      if (ph && (this.hit.kind !== 'hay' || ph.dist <= this.hit.dist + 0.5)) pick = ph.p;
+    }
     const tool = ITEM_BY_ID[s.selectedTool].tool!;
     if (needleHit) {
       this.hud.setTarget('📍 JARUM! Klik untuk mengambil', 'needle');
       this.effects.setAim(null, 0);
       if (this.input.leftClicked) this.collectNeedle('click');
+    } else if (pick) {
+      this.hud.setTarget(`${pick.opts.icon} ${pick.opts.label} — klik untuk ambil`, 'needle');
+      this.effects.setAim(null, 0);
+      if (this.input.leftClicked) this.pickups.collect(pick);
     } else if (this.hit.kind === 'hay') {
       this.hud.setTarget(`🌾 ${fmtInt(g.count(this.hit.x, this.hit.y, this.hit.z))} helai`, 'active');
       this.effects.setAim(this.hit.point, tool.radius);
@@ -877,7 +912,7 @@ export class Game {
     }
 
     this.toolCooldown -= dt;
-    if (!needleHit && this.input.leftDown && this.hit.kind === 'hay' && this.toolCooldown <= 0) {
+    if (!needleHit && !pick && this.input.leftDown && this.hit.kind === 'hay' && this.toolCooldown <= 0) {
       this.useTool(this.hit);
     }
   }

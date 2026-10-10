@@ -83,8 +83,8 @@ export class Sfx {
   }
 
   /** Siulan bom yang jatuh dari langit. */
-  whistle(dur: number): void {
-    this.tone(1900, dur, 'sine', 0.07, 0, 380);
+  whistle(dur: number, peak = 0.07): void {
+    this.tone(1900, dur, 'sine', peak, 0, 380);
   }
 
   /** Dentuman nuklir: retakan keras lalu gemuruh panjang yang meredup. */
@@ -149,6 +149,50 @@ export class Sfx {
   win(): void {
     const notes = [523, 659, 784, 1047, 1319, 1568];
     notes.forEach((n, i) => this.tone(n, 0.35, 'triangle', 0.2, i * 0.11));
+  }
+
+  /** Gemerincing koin saat mengambil harta karun. `big` = harta langka. */
+  treasure(big = false): void {
+    const notes = big ? [784, 988, 1175, 1568, 1976, 2349] : [1319, 1568, 2093];
+    notes.forEach((n, i) => this.tone(n, 0.18, 'triangle', 0.14, i * 0.06));
+    this.noiseBurst(6000, 2, 0.08, 0.25, 'highpass');
+  }
+
+  /** Terompet pendek tanda event dimulai. */
+  fanfare(): void {
+    const notes = [523, 659, 784, 1047];
+    notes.forEach((n, i) => this.tone(n, i === notes.length - 1 ? 0.45 : 0.12, 'sawtooth', 0.07, i * 0.1));
+  }
+
+  /** Deru angin puting beliung. */
+  wind(strength: number): void {
+    this.noiseBurst(300 + Math.random() * 300, 0.7, 0.08 + strength * 0.12, 0.7, 'bandpass');
+  }
+
+  /** Mbeeek! */
+  bleat(): void {
+    if (!this.ctx || !this.master) return;
+    const t = this.ctx.currentTime;
+    const o = this.ctx.createOscillator();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(520, t);
+    o.frequency.linearRampToValueAtTime(470, t + 0.5);
+    const lfo = this.ctx.createOscillator();
+    lfo.frequency.value = 28;
+    const lfoGain = this.ctx.createGain();
+    lfoGain.gain.value = 35;
+    lfo.connect(lfoGain).connect(o.frequency);
+    const f = this.ctx.createBiquadFilter();
+    f.type = 'bandpass';
+    f.frequency.value = 1200;
+    f.Q.value = 1.5;
+    const g = this.ctx.createGain();
+    this.env(g, t, 0.18, 0.03, 0.5);
+    o.connect(f).connect(g).connect(this.master);
+    o.start(t);
+    lfo.start(t);
+    o.stop(t + 0.6);
+    lfo.stop(t + 0.6);
   }
 
   jet(): void {

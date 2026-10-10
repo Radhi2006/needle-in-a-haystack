@@ -1,4 +1,5 @@
-import { fmtDec, fmtInt, fmtMoney, fmtShort } from '../core/format';
+import { Vector3 } from 'three';
+import { compassWord, fmtDec, fmtInt, fmtMoney, fmtShort } from '../core/format';
 import type { Game } from '../core/Game';
 import { CONSUMABLES, ITEM_BY_ID } from '../items/catalog';
 import { automationRate, jetFuel, lvl, ownedTools } from '../items/stats';
@@ -10,6 +11,8 @@ const BUFF_LABEL: Record<string, string> = {
   rate: '☕ Kopi Petani',
   money: '🤑 Uang ×2',
   luck: '🌈 Hoki',
+  golden: '🌟 Jam Emas ×3',
+  diskon: '🛒 Diskon 50%',
 };
 
 export class HUD {
@@ -21,6 +24,7 @@ export class HUD {
   private lastPop = 0;
   private fpsFrames = 0;
   private fpsT = 0;
+  private tmp = new Vector3();
 
   constructor(private game: Game) {}
 
@@ -35,6 +39,17 @@ export class HUD {
     el.classList.remove('on');
     void el.offsetWidth; // paksa reflow agar animasi bisa diulang
     el.classList.add('on');
+  }
+
+  /** Spanduk event acak di atas layar. `icon` null = sembunyikan. */
+  setEvent(icon: string | null, title = '', desc = '', frac = 0): void {
+    const el = $('event-banner');
+    el.classList.toggle('hidden', !icon);
+    if (!icon) return;
+    if ($('ev-icon').textContent !== icon) $('ev-icon').textContent = icon;
+    if ($('ev-title').textContent !== title) $('ev-title').textContent = title;
+    if ($('ev-desc').textContent !== desc) $('ev-desc').textContent = desc;
+    ($('ev-bar') as HTMLElement).style.width = `${frac * 100}%`;
   }
 
   addIncome(money: number): void {
@@ -153,6 +168,8 @@ export class HUD {
     $('hs-auto').textContent = `${fmtShort(ar)} helai/dtk`;
     $('hs-gold-row').classList.toggle('hidden', s.gold <= 0 && lvl(s, 'p_warisan') === 0);
     $('hs-gold').textContent = fmtInt(s.gold);
+    $('hs-treasure').textContent = `${g.treasures.found}/${g.treasures.total}`;
+    $('golden-vignette').classList.toggle('on', (s.buffs.golden ?? 0) > 0);
 
     // Detektor
     const range = det.detectorRange;
@@ -174,6 +191,10 @@ export class HUD {
     if (lvl(s, 'sinar_x')) lines.push(`🥽 Sinar-X: ${det.xrayOn ? 'AKTIF' : 'mati'} [X]`);
     if (det.magnetRange) lines.push(`🧲 Magnet aktif (${fmtDec(det.magnetRange)} m)`);
     if (lvl(s, 'drone_scan')) lines.push(s.drone.scans ? `🛸 Zona r ${fmtDec(s.drone.radius)} m · scan ${Math.ceil(s.drone.timer)} dtk` : `🛸 Drone memindai... ${Math.ceil(s.drone.timer)} dtk`);
+    if (lvl(s, 'peta_harta')) {
+      const near = g.treasures.nearest(g.eyePos(this.tmp));
+      lines.push(near ? `🗺️ Harta terdekat: ${fmtDec(near.dist)} m · ${compassWord(near.dx, near.dz)}` : '🗺️ Semua harta sudah ditemukan!');
+    }
     if (lvl(s, 'senter')) lines.push(`🔦 Senter: ${g.flashlightOn ? 'nyala' : 'mati'} [F]`);
     const tools = $('d-tools');
     tools.classList.toggle('hidden', !lines.length);

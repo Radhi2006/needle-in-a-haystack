@@ -8,6 +8,16 @@ export interface RunStats {
   earned: number;
   timePlayed: number;
   uses: number;
+  /** Harta karun yang sudah diambil di tumpukan ini. */
+  treasures: number;
+}
+
+export type TreasureKind = 'koin' | 'sampah' | 'peti' | 'ramuan' | 'emas' | 'fosil' | 'legenda';
+
+/** Harta karun yang tertimbun di dalam tumpukan (posisi sel grid). */
+export interface Treasure extends CellPos {
+  kind: TreasureKind;
+  found: boolean;
 }
 
 export interface GameState {
@@ -26,6 +36,7 @@ export interface GameState {
   allTime: { collected: number; needlesFound: number; bestTime: number | null };
   player: { x: number; y: number; z: number; yaw: number; pitch: number };
   needle: CellPos & { revealed: boolean };
+  treasures: Treasure[];
   won: boolean;
   drone: { radius: number; cx: number; cz: number; timer: number; scans: number };
   automatorAcc: Record<string, number>;
@@ -49,7 +60,7 @@ export const DEFAULT_SETTINGS: Settings = {
 };
 
 export function emptyStats(): RunStats {
-  return { collected: 0, earned: 0, timePlayed: 0, uses: 0 };
+  return { collected: 0, earned: 0, timePlayed: 0, uses: 0, treasures: 0 };
 }
 
 export function newState(level: number, seed: number, grid: GridData, needle: CellPos, prev?: GameState): GameState {
@@ -71,6 +82,7 @@ export function newState(level: number, seed: number, grid: GridData, needle: Ce
     allTime: prev?.allTime ?? { collected: 0, needlesFound: 0, bestTime: null },
     player: { x: 0, y: 0, z: 0, yaw: 0, pitch: 0 },
     needle: { ...needle, revealed: false },
+    treasures: [],
     won: false,
     drone: { radius: 0, cx: 0, cz: 0, timer: 5, scans: 0 },
     automatorAcc: {},

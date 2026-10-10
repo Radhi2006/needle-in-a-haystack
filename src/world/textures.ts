@@ -105,3 +105,52 @@ export function makeTextTexture(text: string, bg: string, fg: string, w = 256, h
   t.colorSpace = THREE.SRGBColorSpace;
   return t;
 }
+
+const emojiTex = new Map<string, THREE.Texture>();
+
+/** Emoji digambar ke kanvas (ikon harta karun, paket udara, kambing emas). */
+export function getEmojiTexture(icon: string): THREE.Texture {
+  const cached = emojiTex.get(icon);
+  if (cached) return cached;
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const g = c.getContext('2d')!;
+  g.font = '100px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillText(icon, 64, 70);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  emojiTex.set(icon, t);
+  return t;
+}
+
+let streakTex: THREE.Texture | null = null;
+
+/** Garis-garis angin miring (dililitkan ke corong puting beliung agar putarannya terlihat). */
+export function getStreakTexture(): THREE.Texture {
+  if (streakTex) return streakTex;
+  const w = 256;
+  const h = 128;
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  const g = c.getContext('2d')!;
+  const rnd = mulberry32(4242);
+  for (let i = 0; i < 70; i++) {
+    const x = rnd() * w;
+    const y = rnd() * h;
+    const len = 30 + rnd() * 90;
+    const a = 0.15 + rnd() * 0.5;
+    g.strokeStyle = `rgba(255,255,255,${a.toFixed(2)})`;
+    g.lineWidth = 1 + rnd() * 4;
+    g.beginPath();
+    g.moveTo(x, y);
+    g.lineTo(x + len, y - len * 0.18);
+    g.stroke();
+  }
+  streakTex = new THREE.CanvasTexture(c);
+  streakTex.wrapS = streakTex.wrapT = THREE.RepeatWrapping;
+  streakTex.colorSpace = THREE.SRGBColorSpace;
+  return streakTex;
+}

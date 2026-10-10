@@ -12,7 +12,7 @@ npm test         # unit test (grid, fisika runtuh, ekonomi)
 npm run build    # build produksi ke dist/
 ```
 
-Tambahkan `?debug` di URL untuk mode debug: jarum selalu terlihat, tombol **K** menambah uang & Jarum Emas.
+Tambahkan `?debug` di URL untuk mode debug: jarum selalu terlihat, tombol **K** menambah uang & Jarum Emas, tombol **E** memicu event acak berikutnya.
 
 ## Kontrol
 
@@ -24,6 +24,16 @@ Tambahkan `?debug` di URL untuk mode debug: jarum selalu terlihat, tombol **K** 
 | B | Toko |
 | G / T | Pakai / ganti konsumabel |
 | F / X / P / M | Senter / Sinar-X / Sonar / bisukan detektor |
+
+## Harta karun & event acak
+
+- **Harta karun:** ±36 harta (bertambah tiap tumpukan) tertimbun di dalam jerami — kantong koin, peti kejutan berisi
+  konsumabel, botol ramuan misterius, jerami emas, fosil, barang rongsok, dan satu **Peti Harta Legendaris** (+1 Jarum Emas).
+  Saat tergali, harta tersembul & berkilau; dekati atau klik untuk mengambil. Nilainya ikut membesar seiring penghasilanmu.
+  Item terkait: 🗺️ Peta Harta Karun (deteksi), 🏴‍☠️ Mata Pemburu Harta (prestige), magnet ikut menarik harta.
+- **Event acak** (pertama setelah 2 menit, lalu tiap ±2–4 menit; 🧿 Jimat Keberuntungan mempercepat):
+  🌟 Jam Emas (uang ×3), ☄️ Hujan Meteor, 🌪️ Angin Puting Beliung, 🪂 Paket Udara, 🛒 Pedagang Keliling (diskon 50%),
+  🐐 Kambing Emas Kabur (kejar & tangkap).
 
 ## Cara kerjanya (singkat)
 

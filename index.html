@@ -23,6 +23,7 @@
         <div class="sp-row money"><span>💰 Uang</span><span id="hs-money">Rp 0</span></div>
         <div class="sp-row dim small"><span>Penghasilan</span><span id="hs-income">Rp 0/dtk</span></div>
         <div class="sp-row dim small" id="hs-auto-row"><span>Otomatisasi</span><span id="hs-auto">0 helai/dtk</span></div>
+        <div class="sp-row dim small"><span>🗝️ Harta karun</span><span id="hs-treasure">0/0</span></div>
         <div class="sp-row gold" id="hs-gold-row"><span>📍 Jarum Emas</span><span id="hs-gold">0</span></div>
       </div>
 
@@ -57,9 +58,18 @@
         <b>B</b> Toko · <b>G</b> Pakai item · <b>T</b> Ganti item · <b>1-9</b>/scroll Ganti alat · <b>Esc</b> Menu
       </div>
       <div id="fps"></div>
+      <div id="golden-vignette"></div>
     </div>
 
     <div id="nuke-flash"></div>
+    <div id="event-banner" class="hidden">
+      <div id="ev-icon"></div>
+      <div class="ev-body">
+        <div class="ev-head"><span class="ev-tag">EVENT</span> <span id="ev-title"></span></div>
+        <div id="ev-desc"></div>
+        <div class="ev-track"><div id="ev-bar"></div></div>
+      </div>
+    </div>
     <div id="toasts"></div>
 
     <div id="shop" class="overlay hidden">
@@ -135,6 +145,7 @@
             <div><kbd>P</kbd> Sonar</div>
             <div><kbd>M</kbd> Bisukan detektor</div>
           </div>
+          <p class="dim small">🗝️ Puluhan <b>harta karun</b> ikut tertimbun di tumpukan — dekati atau klik saat tersembul untuk mengambilnya. Tiap beberapa menit ada <b>event acak</b>: hujan meteor, puting beliung, jam emas, paket udara, pedagang keliling, sampai kambing emas kabur!</p>
           <p class="dim small">Tips: jerami di atas lubang akan runtuh. Jarum akan berkilau ✨ saat sudah terbuka — klik untuk mengambilnya. Progres tersimpan otomatis di browser.</p>
         </div>
       </div>

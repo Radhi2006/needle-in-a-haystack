@@ -139,6 +139,17 @@ export class Effects {
         }
         return g;
       }
+      case 'meteor': {
+        const g = new THREE.Group();
+        const rock = new THREE.Mesh(
+          new THREE.DodecahedronGeometry(0.55, 0),
+          new THREE.MeshLambertMaterial({ color: 0x4a2a1a, emissive: 0xff4a10, emissiveIntensity: 0.8 }),
+        );
+        const fire = new THREE.Sprite(new THREE.SpriteMaterial({ map: getGlowTexture(), color: 0xff7a2a, blending: THREE.AdditiveBlending, depthWrite: false }));
+        fire.scale.setScalar(4);
+        g.add(rock, fire);
+        return g;
+      }
       default:
         return new THREE.Mesh(
           new THREE.SphereGeometry(kind === 'bom_raksasa' ? 0.35 : 0.18, 12, 8),

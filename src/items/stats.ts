@@ -5,7 +5,7 @@ export const lvl = (s: GameState, id: string): number => s.owned[id] ?? 0;
 export const buffOn = (s: GameState, id: string): boolean => (s.buffs[id] ?? 0) > 0;
 
 export function moneyMult(s: GameState): number {
-  return (1 + 0.25 * lvl(s, 'dompet')) * (1 + 0.5 * lvl(s, 'p_warisan')) * (buffOn(s, 'money') ? 2 : 1);
+  return (1 + 0.25 * lvl(s, 'dompet')) * (1 + 0.5 * lvl(s, 'p_warisan')) * (buffOn(s, 'money') ? 2 : 1) * (buffOn(s, 'golden') ? 3 : 1);
 }
 
 export function toolRateMult(s: GameState): number {
@@ -41,6 +41,16 @@ export function jetFuel(s: GameState): number {
   return 3 + lvl(s, 'tangki');
 }
 
+/** Pengali jeda antar event acak (lebih kecil = lebih sering). */
+export function eventIntervalMult(s: GameState): number {
+  return Math.pow(0.85, lvl(s, 'jimat'));
+}
+
+/** Pengali jumlah & isi harta karun dari prestige. */
+export function treasureMult(s: GameState): number {
+  return 1 + 0.25 * lvl(s, 'p_pemburu');
+}
+
 export function automatorMult(s: GameState, def: ItemDef): number {
   const kind = def.auto?.kind;
   const base = kind === 'animal' ? 1 + lvl(s, 'pakan') : 1 + lvl(s, 'oli');
@@ -61,7 +71,7 @@ export function automationRate(s: GameState): number {
 export function priceOf(def: ItemDef, s: GameState): number {
   const owned = lvl(s, def.id);
   if (def.category === 'consumable') {
-    return Math.round(def.price * (1 - 0.15 * lvl(s, 'p_hemat')));
+    return Math.round(def.price * (1 - 0.15 * lvl(s, 'p_hemat')) * (buffOn(s, 'diskon') ? 0.5 : 1));
   }
   return Math.round(def.price * Math.pow(def.growth, owned));
 }

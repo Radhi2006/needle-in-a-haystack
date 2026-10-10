@@ -75,3 +75,33 @@ describe('format', () => {
     expect(compassWord(-1, 0)).toBe('Barat');
   });
 });
+
+describe('harta karun & event', () => {
+  it('tersebar di sel padat, unik, tepat satu legenda, tidak di sel jarum', async () => {
+    const { generateTreasures, treasureCount } = await import('../src/treasure/Treasures');
+    const { grid, needle } = HaystackGrid.generate(7, 200_000, 100);
+    const n = treasureCount(0);
+    const ts = generateTreasures(grid, 7, n, needle);
+    expect(ts.length).toBe(n);
+    expect(ts.filter((t) => t.kind === 'legenda').length).toBe(1);
+    const keys = new Set(ts.map((t) => grid.index(t.x, t.y, t.z)));
+    expect(keys.size).toBe(n);
+    expect(keys.has(grid.index(needle.x, needle.y, needle.z))).toBe(false);
+    for (const t of ts) expect(grid.isSolid(t.x, t.y, t.z)).toBe(true);
+    // deterministik dari seed
+    expect(generateTreasures(grid, 7, n, needle)).toEqual(ts);
+  });
+
+  it('jam emas ×3 uang, pedagang keliling diskon 50% konsumabel', () => {
+    const s = state();
+    const base = moneyMult(s);
+    s.buffs.golden = 10;
+    expect(moneyMult(s)).toBeCloseTo(base * 3);
+    const bom = ITEM_BY_ID.bom;
+    const full = priceOf(bom, s);
+    s.buffs.diskon = 10;
+    expect(priceOf(bom, s)).toBe(Math.round(full * 0.5));
+    // diskon tidak berlaku untuk upgrade
+    expect(priceOf(ITEM_BY_ID.sepatu, s)).toBe(ITEM_BY_ID.sepatu.price);
+  });
+});
