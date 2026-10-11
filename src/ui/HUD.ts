@@ -33,9 +33,10 @@ export class HUD {
   }
 
   /** Kilatan putih menyilaukan satu layar penuh (ledakan nuklir). strength 0..1 */
-  nukeFlash(strength: number): void {
+  nukeFlash(strength: number, tint?: 'violet'): void {
     const el = $('nuke-flash');
     el.style.setProperty('--peak', strength.toFixed(2));
+    el.classList.toggle('violet', tint === 'violet');
     el.classList.remove('on');
     void el.offsetWidth; // paksa reflow agar animasi bisa diulang
     el.classList.add('on');

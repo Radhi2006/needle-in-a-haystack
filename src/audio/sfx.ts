@@ -116,6 +116,61 @@ export class Sfx {
     }
   }
 
+  /** Dengung mengisi daya yang makin tinggi (antimateri, satelit membidik). */
+  charge(dur: number): void {
+    this.tone(120, dur, 'sawtooth', 0.06, 0, 1600);
+    this.tone(240, dur, 'sine', 0.12, 0, 2400);
+  }
+
+  /** Gemuruh berat yang membesar (asteroid memasuki atmosfer). */
+  roar(dur: number): void {
+    if (!this.ctx || !this.noise || !this.master) return;
+    const t = this.ctx.currentTime;
+    const src = this.ctx.createBufferSource();
+    src.buffer = this.noise;
+    src.loop = true;
+    const f = this.ctx.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.setValueAtTime(200, t);
+    f.frequency.exponentialRampToValueAtTime(1400, t + dur);
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.6, t + dur);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.1);
+    src.connect(f).connect(g).connect(this.master);
+    src.start(t);
+    src.stop(t + dur + 0.15);
+  }
+
+  /** Dengung rendah bergetar selama `dur` detik (lubang hitam). */
+  drone(dur: number): void {
+    if (!this.ctx || !this.master) return;
+    const t = this.ctx.currentTime;
+    const o = this.ctx.createOscillator();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(55, t);
+    o.frequency.linearRampToValueAtTime(32, t + dur);
+    const lfo = this.ctx.createOscillator();
+    lfo.frequency.setValueAtTime(3, t);
+    lfo.frequency.linearRampToValueAtTime(14, t + dur);
+    const lfoGain = this.ctx.createGain();
+    lfoGain.gain.value = 0.12;
+    const f = this.ctx.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.value = 260;
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.3, t + 0.8);
+    g.gain.setValueAtTime(0.3, t + dur - 0.3);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.4);
+    lfo.connect(lfoGain).connect(g.gain);
+    o.connect(f).connect(g).connect(this.master);
+    o.start(t);
+    lfo.start(t);
+    o.stop(t + dur + 0.5);
+    lfo.stop(t + dur + 0.5);
+  }
+
   whoosh(): void {
     this.noiseBurst(900, 0.6, 0.3, 0.6, 'lowpass');
   }

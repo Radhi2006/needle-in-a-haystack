@@ -3,7 +3,7 @@ import { Automators } from '../automation/Automators';
 import { Sfx } from '../audio/sfx';
 import { Detection } from '../detection/Detection';
 import { Events } from '../events/Events';
-import { CONSUMABLES, ITEM_BY_ID, TOOLS, type ItemDef } from '../items/catalog';
+import { CONSUMABLES, ITEM_BY_ID, TOOLS, type ConsumableSpec, type ItemDef } from '../items/catalog';
 import {
   amountMult, automationRate, bulkPrice, critChance, critMult, jetFuel, jumpMult, lvl,
   moneyMult, ownedTools, reach, speedMult, toolRateMult, treasureMult,
@@ -35,6 +35,10 @@ import { randomSeed } from './rng';
 import { newState, type GameState, type Settings } from './state';
 
 type Phase = 'loading' | 'menu' | 'playing' | 'shop' | 'win';
+
+/** Bom raksasa: dibidik jauh & dijatuhkan dari langit/orbit (bukan dilempar). */
+const SKY_KINDS = new Set<ConsumableSpec['kind']>(['nuke', 'mirv', 'orbital', 'antimatter', 'blackhole', 'asteroid']);
+const DOWN = new THREE.Vector3(0, -1, 0);
 
 const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => setTimeout(r, 0)));
 
@@ -196,6 +200,10 @@ export class Game {
     this.grid.listener = (x, y, z) => {
       this.chunks!.markCell(x, y, z);
       this.straws!.notifyCell(x, y, z);
+    };
+    this.grid.regionListener = (fx, fz, rc, y0, y1) => {
+      this.chunks!.markRegion(fx, fz, rc, y0, y1);
+      this.straws!.dirty = true;
     };
 
     this.automators = new Automators(
@@ -551,16 +559,36 @@ export class Game {
       this.sfx.ding();
     } else {
       const eye = this.eyePos(new THREE.Vector3());
-      const hit = raycastGrid(this.grid, eye, this.dir, 26);
-      const to = hit.kind !== 'none' ? hit.point.clone() : eye.clone().addScaledVector(this.dir, 18);
+      const big = SKY_KINDS.has(c.kind);
+      // bom raksasa bisa dibidik jauh (dijatuhkan dari langit), bom biasa dilempar
+      const hit = raycastGrid(this.grid, eye, this.dir, big ? 220 : 26);
+      let to: THREE.Vector3;
+      if (hit.kind !== 'none') to = hit.point.clone();
+      else if (big) {
+        const flat = this.flatDir(new THREE.Vector3());
+        to = this.surfacePoint(eye.x + flat.x * 40, eye.z + flat.z * 40);
+      } else to = eye.clone().addScaledVector(this.dir, 18);
       to.y = Math.max(0.2, to.y);
-      if (c.kind === 'nuke') {
-        // dijatuhkan dari langit tepat di titik bidikan
-        const from = to.clone().add(new THREE.Vector3(-6, 70, 3));
-        const dur = 2.6;
+      if (c.kind === 'orbital') {
+        // tidak ada yang dilempar: satelit langsung membidik
+        this.detonate(def, to);
+        this.sfx.charge(1.6);
+        this.hud.toast('🛰️ Satelit mengunci target... batang tungsten meluncur dari orbit!', 3500);
+      } else if (c.kind === 'asteroid') {
+        const from = to.clone().add(new THREE.Vector3(-260, 430, 150));
+        const dur = 5.5;
         this.effects.throwObject(id, from, to, () => this.detonate(def, to), { dur, arc: 0, spin: false });
+        this.sfx.whistle(dur, 0.1);
+        this.sfx.roar(dur);
+        this.hud.toast('🌑 Asteroid raksasa memasuki atmosfer... TIDAK ADA TEMPAT BERSEMBUNYI!', 5000);
+      } else if (big) {
+        // dijatuhkan dari langit tepat di titik bidikan (rudal MIRV melepas hulu ledak di udara)
+        const at = c.kind === 'mirv' ? to.clone().setY(to.y + 55) : to;
+        const from = at.clone().add(new THREE.Vector3(-6, 70, 3));
+        const dur = 2.6;
+        this.effects.throwObject(id, from, at, () => this.detonate(def, at), { dur, arc: 0, spin: false });
         this.sfx.whistle(dur);
-        this.hud.toast('☢️ Bom nuklir meluncur dari langit... LARI SEKARANG!', 3500);
+        this.hud.toast(`${def.icon} ${def.name} meluncur dari langit... LARI SEKARANG!`, 3500);
       } else {
         const right = new THREE.Vector3(Math.cos(this.player.yaw), 0, -Math.sin(this.player.yaw));
         const from = eye.clone().addScaledVector(this.dir, 0.5).addScaledVector(right, 0.3);
@@ -614,6 +642,21 @@ export class Game {
       case 'nuke':
         this.nukeBlast(p, r);
         break;
+      case 'mirv':
+        this.mirvStrike(p, c);
+        break;
+      case 'orbital':
+        this.orbitalStrike(p, c);
+        break;
+      case 'antimatter':
+        this.antimatterBlast(p, r);
+        break;
+      case 'blackhole':
+        this.blackHoleBomb(p, r, c.duration ?? 7);
+        break;
+      case 'asteroid':
+        this.asteroidImpact(p, r);
+        break;
       case 'fan': {
         const taken = this.grid.takeExposedLayer(p.x, p.y, p.z, r, 0.6);
         this.particles.burst(p.x, p.y + 0.5, p.z, 160, 7, 4);
@@ -638,23 +681,176 @@ export class Game {
     return taken;
   }
 
-  private nukeBlast(p: THREE.Vector3, r: number): void {
+  /** `quiet` = tanpa toast & tanpa dentuman nuklir penuh (hulu ledak MIRV susulan). */
+  private nukeBlast(p: THREE.Vector3, r: number, quiet = false): number {
     // Kawah setengah bola berpusat di tanah tepat di bawah titik jatuh (meratakan dari dasar
     // sampai puncak), plus bola di titik jatuh untuk tumpukan yang lebih tinggi dari radiusnya.
-    let taken = this.grid.takeSphere(p.x, 0, p.z, r, Infinity);
-    if (p.y > r * 0.5) taken += this.grid.takeSphere(p.x, p.y, p.z, r * 0.6, Infinity);
+    let taken = this.grid.carveSphere(p.x, 0, p.z, r);
+    if (p.y > r * 0.5) taken += this.grid.carveSphere(p.x, p.y, p.z, r * 0.6);
     this.particles.burst(p.x, p.y, p.z, 220, 30, 24);
-    this.sfx.nuke();
+    if (quiet) this.sfx.boom(14);
+    else this.sfx.nuke();
+    const d = this.eyePos(this.tmp).distanceTo(p);
+    this.effects.nuke(p, Math.max(0.5, Math.min(2, 2.2 - d / (r * 4))), r / 14);
+    this.blindingFlash(p, 120);
+    if (d < r * 1.5) this.knockback(p, 26 * (1 - d / (r * 1.5)) + 6, 14);
+    // bom raksasa dibayar penuh, tidak dipotong BLAST_MONEY_RATE
+    this.gain(taken, 1, 'blast');
+    if (!quiet) this.hud.toast(`☢️ KABOOOM! ${fmtInt(taken)} helai jerami lenyap dalam sekejap.`, 5000);
+    return taken;
+  }
+
+  /** Kilatan layar penuh, lebih terang bila dekat & menghadap ledakan. */
+  private blindingFlash(p: THREE.Vector3, falloff: number, tint?: 'violet'): void {
     const eye = this.eyePos(this.tmp);
     const d = eye.distanceTo(p);
-    this.effects.nuke(p, Math.max(0.5, Math.min(2, 2.2 - d / (r * 4))), r / 14);
-    // kilatan layar, lebih terang bila menghadap ledakan
     const facing = this.tmp2.copy(p).sub(eye).normalize().dot(this.dir);
-    this.hud.nukeFlash(Math.max(0.35, Math.min(1, 1.3 - d / 120)) * (0.6 + 0.4 * Math.max(0, facing)));
-    if (d < r * 1.5) this.knockback(p, 26 * (1 - d / (r * 1.5)) + 6, 14);
-    // nuklir dibayar penuh, tidak dipotong BLAST_MONEY_RATE
+    this.hud.nukeFlash(Math.max(0.35, Math.min(1, 1.3 - d / falloff)) * (0.6 + 0.4 * Math.max(0, facing)), tint);
+  }
+
+  /** Arah hadap pemain di bidang datar (ternormalisasi). */
+  private flatDir(out: THREE.Vector3): THREE.Vector3 {
+    out.set(this.dir.x, 0, this.dir.z);
+    if (out.lengthSq() < 1e-4) out.set(-Math.sin(this.player.yaw), 0, -Math.cos(this.player.yaw));
+    return out.normalize();
+  }
+
+  /** Titik permukaan jerami (atau tanah) tepat di bawah (x, z). */
+  private surfacePoint(x: number, z: number): THREE.Vector3 {
+    const top = new THREE.Vector3(x, this.grid.sy * CELL + 2, z);
+    const hit = raycastGrid(this.grid, top, DOWN, top.y + 1);
+    return hit.kind === 'hay' ? hit.point.clone() : top.setY(0.2);
+  }
+
+  /** Rudal MIRV pecah di udara: hulu ledak menyebar & masing-masing jadi ledakan nuklir. */
+  private mirvStrike(p: THREE.Vector3, c: ConsumableSpec): void {
+    const n = c.count ?? 6;
+    const r = c.radius ?? 30;
+    const spread = c.spread ?? 70;
+    this.effects.flash(p, 14, 0xffe0a0);
+    this.sfx.boom(4);
+    this.sfx.whistle(1.6, 0.05);
+    let total = 0;
+    let left = n;
+    const a0 = Math.random() * Math.PI * 2;
+    for (let i = 0; i < n; i++) {
+      // satu di tengah, sisanya melingkar
+      const a = a0 + (i / Math.max(1, n - 1)) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
+      const d = i === 0 ? 0 : spread * (0.75 + Math.random() * 0.25);
+      const to = this.surfacePoint(p.x + Math.cos(a) * d, p.z + Math.sin(a) * d);
+      to.y = Math.max(0.2, to.y);
+      this.effects.throwObject('warhead', p, to, () => {
+        total += this.nukeBlast(to, r, i > 0);
+        if (--left === 0) this.hud.toast(`🚀 ${n} hulu ledak menghantam! ${fmtInt(total)} helai jerami menguap.`, 5000);
+      }, { dur: 1.2 + i * 0.22, arc: 4 + Math.random() * 4, spin: false });
+    }
+  }
+
+  /** Serangan orbital: sinar bidik merah berderet, lalu batang tungsten menghantam satu per satu. */
+  private orbitalStrike(p: THREE.Vector3, c: ConsumableSpec): void {
+    const n = c.count ?? 9;
+    const r = c.radius ?? 24;
+    const len = c.spread ?? 240;
+    const fwd = this.flatDir(new THREE.Vector3());
+    const lock = 1.6;
+    const gap = 0.32;
+    let total = 0;
+    for (let k = 0; k < n; k++) {
+      const off = -len / 2 + (k * len) / Math.max(1, n - 1);
+      const q = this.surfacePoint(p.x + fwd.x * off, p.z + fwd.z * off);
+      const fire = lock + k * gap;
+      this.effects.beam(q.x, q.z, 0, 320, 0xff2a2a, 0.35, fire + 0.35, 0.9, true);
+      this.effects.after(fire, () => {
+        this.effects.throwObject('rod', q.clone().setY(q.y + 300), q, () => {
+          total += this.rodImpact(q, r);
+          if (k === n - 1) this.hud.toast(`🛰️ Serangan orbital selesai! ${fmtInt(total)} helai jerami lenyap.`, 5000);
+        }, { dur: 0.35, arc: 0, spin: false });
+      });
+    }
+  }
+
+  /** Satu batang tungsten: lubang silinder sampai tanah + kawah setengah bola. */
+  private rodImpact(q: THREE.Vector3, r: number): number {
+    const shaft = r * 0.62;
+    const taken = this.grid.carve(q.x, q.z, r, (d) => (d <= shaft ? [0, 1e4] : [0, Math.sqrt(r * r - d * d)]));
+    this.effects.beam(q.x, q.z, 0, 260, 0xdfeaff, shaft, 0.9, 0.9);
+    this.effects.flash(q, r * 2.6, 0xfff0d0);
+    this.effects.flash(q.clone().setY(1), r * 3.2, 0xff8a3a);
+    this.effects.shockRing(q.clone().setY(0), r * 3, 1.6);
+    this.particles.burst(q.x, q.y, q.z, 160, 22, 26);
+    this.sfx.boom(16);
+    const d = this.eyePos(this.tmp).distanceTo(q);
+    this.effects.shake = Math.max(this.effects.shake, Math.max(0.25, 1.6 - d / 150));
+    if (d < r * 1.5) this.knockback(q, 22, 12);
     this.gain(taken, 1, 'blast');
-    this.hud.toast(`☢️ KABOOOM! ${fmtInt(taken)} helai jerami lenyap dalam sekejap.`, 5000);
+    return taken;
+  }
+
+  /** Antimateri: inti mengisap cahaya sebentar, lalu semua jerami dalam bola musnah. */
+  private antimatterBlast(p: THREE.Vector3, r: number): void {
+    const charge = 1.1;
+    this.effects.antimatter(p, r, charge);
+    this.sfx.charge(charge);
+    this.effects.after(charge, () => {
+      const taken = this.grid.carveSphere(p.x, p.y, p.z, r);
+      this.sfx.nuke();
+      this.blindingFlash(p, 160, 'violet');
+      this.effects.shockRing(p.clone().setY(0), r * 1.8, 2.4, 0xd9b8ff);
+      this.effects.rumble(1.8);
+      if (this.eyePos(this.tmp).distanceTo(p) < r * 1.3) this.knockback(p, 18, 10);
+      this.gain(taken, 1, 'blast');
+      this.hud.toast(`🔮 ANIHILASI! ${fmtInt(taken)} helai jerami berubah jadi cahaya murni.`, 5000);
+    });
+  }
+
+  /** Lubang hitam melayang di atas titik jatuh, menyedot jerami makin lama makin luas. */
+  private blackHoleBomb(p: THREE.Vector3, r: number, dur: number): void {
+    const center = p.clone().setY(p.y + 6);
+    let total = 0;
+    let prev = 0;
+    let ticks = 0;
+    const eat = (taken: number) => {
+      total += taken;
+      this.gain(taken, 1, 'auto');
+    };
+    this.sfx.drone(dur);
+    this.hud.toast('🕳️ Lubang hitam terbuka! Menjauh — dia lapar...', 4000);
+    this.effects.blackHole(center, r, dur, (cur) => {
+      // tiap tick cukup kulit bola yang baru; sekali per detik sapu penuh untuk jerami yang runtuh ke dalam
+      if (ticks++ % 5 === 0) {
+        eat(this.grid.carveSphere(center.x, center.y, center.z, cur));
+      } else eat(this.grid.carveShell(center.x, center.y, center.z, prev, cur));
+      prev = cur;
+      this.effects.shake = Math.max(this.effects.shake, 0.35);
+      // pemain ikut tertarik bila berada dalam jangkauan
+      const pull = this.tmp.copy(center).sub(this.player.pos);
+      const d = pull.length();
+      if (d < cur * 1.2 && d > 3) this.player.vel.add(pull.normalize().multiplyScalar(3.5 * (1 - d / (cur * 1.2)) + 0.8));
+    }, () => {
+      eat(this.grid.carveSphere(center.x, center.y, center.z, r));
+      this.effects.flash(center, 40, 0xc9a0ff);
+      this.effects.shockRing(center.clone().setY(0), r * 1.5, 1.8, 0xc9a0ff);
+      this.sfx.boom(18);
+      this.effects.rumble(1.2);
+      this.hud.pop(`🕳️ +${fmtShort(total)} 🌾 +${fmtMoney(total * moneyMult(this.state))}`, 'blast');
+      this.hud.toast(`🕳️ Lubang hitam runtuh. ${fmtInt(total)} helai jerami tertelan selamanya.`, 5000);
+    });
+  }
+
+  /** Asteroid menghantam: kawah setengah bola raksasa dari tanah. */
+  private asteroidImpact(p: THREE.Vector3, r: number): void {
+    const taken = this.grid.carve(p.x, p.z, r, (d) => [0, Math.sqrt(Math.max(0, r * r - d * d))]);
+    this.particles.burst(p.x, p.y, p.z, 220, 45, 40);
+    this.sfx.nuke();
+    this.sfx.boom(30);
+    this.effects.nuke(p.clone().setY(0), 2, 5.5);
+    this.effects.shockRing(p.clone().setY(0), r * 2.4, 3.5, 0xffd9a0);
+    this.effects.shockRing(p.clone().setY(0), r * 1.3, 2.2);
+    this.hud.nukeFlash(1);
+    const d = this.eyePos(this.tmp).distanceTo(p);
+    this.knockback(p, Math.max(8, 34 * (1 - d / (r * 2))), 18);
+    this.gain(taken, 1, 'blast');
+    this.hud.toast(`🌑 DAMPAK ASTEROID! ${fmtInt(taken)} helai jerami terhapus dari muka bumi.`, 6000);
   }
 
   private knockback(from: THREE.Vector3, force: number, up: number): void {

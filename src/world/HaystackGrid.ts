@@ -2,6 +2,13 @@ import { CELL, ISO } from '../core/config';
 import { hash32, mulberry32, valueNoise3 } from '../core/rng';
 
 export type CellListener = (x: number, y: number, z: number) => void;
+/** Banyak sel berubah sekaligus di dalam silinder sel (pusat fx,fz; radius rc; y0..y1). */
+export type RegionListener = (fx: number, fz: number, rc: number, y0: number, y1: number) => void;
+/**
+ * Rentang ketinggian (meter) yang dihapus pada jarak horizontal `d` (m) dari pusat, atau null.
+ * Boleh berisi beberapa pasangan [bawah, atas, bawah, atas, ...].
+ */
+export type CarveSpan = (d: number) => number[] | null;
 
 export interface GridData {
   sx: number;
@@ -47,6 +54,7 @@ export class HaystackGrid {
   readonly initialTotal: number;
   remaining: number;
   listener: CellListener | null = null;
+  regionListener: RegionListener | null = null;
 
   private active = new Set<number>();
   private tickNo = 0;
@@ -313,6 +321,89 @@ export class HaystackGrid {
     }
     this.remaining -= taken;
     return taken;
+  }
+
+  /**
+   * Hapus SEMUA helai dalam bentuk simetris-putar di sekitar (wx, wz) — untuk ledakan raksasa.
+   * Jauh lebih cepat daripada takeSphere: per kolom, tanpa urutan & tanpa listener per sel.
+   * `span(d)` memberi rentang ketinggian (meter) yang dihapus pada jarak horizontal d.
+   */
+  carve(wx: number, wz: number, radius: number, span: CarveSpan): number {
+    const { counts, layer, sx, sy } = this;
+    const fx = (wx - this.originX) / CELL - 0.5;
+    const fz = (wz - this.originZ) / CELL - 0.5;
+    const rc = radius / CELL + 0.5;
+    const rc2 = rc * rc;
+    const rim2 = Math.max(0, rc - 2) ** 2;
+    const x0 = Math.max(0, Math.floor(fx - rc)), x1 = Math.min(sx - 1, Math.ceil(fx + rc));
+    const z0 = Math.max(0, Math.floor(fz - rc)), z1 = Math.min(this.sz - 1, Math.ceil(fz + rc));
+    let taken = 0;
+    let minY = sy, maxY = -1;
+    for (let z = z0; z <= z1; z++) {
+      for (let x = x0; x <= x1; x++) {
+        const d2 = (x - fx) ** 2 + (z - fz) ** 2;
+        if (d2 > rc2) continue;
+        const s = span(Math.sqrt(d2) * CELL);
+        if (!s) continue;
+        const col = x + sx * z;
+        let got = 0;
+        let top = -1;
+        for (let k = 0; k + 1 < s.length; k += 2) {
+          const ya = Math.max(0, Math.ceil(s[k] / CELL - 0.5));
+          const yb = Math.min(sy - 1, Math.floor(s[k + 1] / CELL - 0.5));
+          if (yb < ya) continue;
+          let segGot = 0;
+          for (let y = ya, i = col + ya * layer; y <= yb; y++, i += layer) {
+            const c = counts[i];
+            if (c) {
+              segGot += c;
+              counts[i] = 0;
+            }
+          }
+          if (!segGot) continue;
+          got += segGot;
+          if (ya < minY) minY = ya;
+          if (yb > maxY) maxY = yb;
+          if (yb > top) top = yb;
+        }
+        if (!got) continue;
+        taken += got;
+        // Fisika runtuh hanya perlu kolom tepi kawah & kolom yang masih punya jerami menggantung di atasnya.
+        let above = d2 >= rim2;
+        for (let i = col + (top + 1) * layer; !above && i < counts.length; i += layer) above = counts[i] > 0;
+        if (above) this.wake(x, z);
+      }
+    }
+    if (taken) {
+      this.remaining -= taken;
+      this.regionListener?.(fx, fz, rc, minY, maxY);
+    }
+    return taken;
+  }
+
+  /** Hapus semua helai dalam bola (versi cepat takeSphere tanpa batas jumlah). */
+  carveSphere(wx: number, wy: number, wz: number, radius: number): number {
+    // +½ sel, sama seperti takeSphere (dan seperti cakram kolom di carve)
+    const r = radius + CELL / 2;
+    return this.carve(wx, wz, radius, (d) => {
+      const h = Math.sqrt(Math.max(0, r * r - d * d));
+      return [wy - h, wy + h];
+    });
+  }
+
+  /**
+   * Hapus helai di kulit bola antara radius `inner` dan `outer` saja — untuk bola yang terus membesar
+   * (lubang hitam): bagian dalam sudah kosong, jadi tidak perlu dipindai ulang.
+   */
+  carveShell(wx: number, wy: number, wz: number, inner: number, outer: number): number {
+    const ro = outer + CELL / 2;
+    const ri = inner + CELL / 2;
+    return this.carve(wx, wz, outer, (d) => {
+      const ho = Math.sqrt(Math.max(0, ro * ro - d * d));
+      if (d >= ri) return [wy - ho, wy + ho];
+      const hi = Math.sqrt(ri * ri - d * d);
+      return [wy - ho, wy - hi, wy + hi, wy + ho];
+    });
   }
 
   /** Ambil sebagian (`fraction`) helai dari sel-sel yang terbuka dalam radius (efek kipas). */

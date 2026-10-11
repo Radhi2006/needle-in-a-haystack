@@ -372,6 +372,9 @@ canvas#game {
   z-index: 40;
   background: radial-gradient(circle at 50% 40%, #ffffff 0%, #fff8dc 45%, #ffcf7a 100%);
 }
+#nuke-flash.violet {
+  background: radial-gradient(circle at 50% 40%, #ffffff 0%, #ecdcff 40%, #a46bff 100%);
+}
 #nuke-flash.on {
   animation: nuke-flash 2.6s ease-out forwards;
 }

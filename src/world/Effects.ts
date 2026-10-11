@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { AntimatterBurst, Beam, BlackHole, ShockRing, type Fx } from './Megabombs';
 import { MushroomCloud } from './Nuke';
 import { getGlowTexture } from './textures';
 
@@ -41,6 +42,7 @@ export class Effects {
   private droneRadius = 0;
   private timers: { t: number; fn: () => void }[] = [];
   private nukes: MushroomCloud[] = [];
+  private fx: Fx[] = [];
   private nukeLight: THREE.PointLight;
   private rumbleT = -1;
   private rumbleAmp = 0;
@@ -85,6 +87,11 @@ export class Effects {
 
   private projectileMesh(kind: string): THREE.Object3D {
     const lambert = (color: number) => new THREE.MeshLambertMaterial({ color });
+    const glow = (color: number, size: number) => {
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: getGlowTexture(), color, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+      sp.scale.setScalar(size);
+      return sp;
+    };
     const fuse = () => {
       const spark = new THREE.Sprite(new THREE.SpriteMaterial({ map: getGlowTexture(), color: 0xffaa33, blending: THREE.AdditiveBlending, depthWrite: false }));
       spark.scale.setScalar(0.3);
@@ -124,19 +131,68 @@ export class Effects {
         g.add(body, spark);
         return g;
       }
-      case 'nuklir': {
-        // bom kuning-hitam dengan sirip, moncong menghadap bawah
+      case 'nuklir':
+      case 'hidrogen':
+      case 'mirv': {
+        // bom bersirip, moncong menghadap bawah (nuklir kuning-hitam, hidrogen putih-merah, rudal MIRV putih-abu besar)
+        const [bodyCol, bandCol, size] =
+          kind === 'hidrogen' ? [0xf1efe8, 0xb3261e, 1.9] : kind === 'mirv' ? [0xdfe3e8, 0x39404a, 2.4] : [0xf2c230, 0x1c1c1c, 1];
         const g = new THREE.Group();
-        const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.45, 1.3, 6, 16), lambert(0xf2c230));
-        const band = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.46, 0.3, 16), lambert(0x1c1c1c));
+        const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.45, 1.3, 6, 16), lambert(bodyCol));
+        const band = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.46, 0.3, 16), lambert(bandCol));
         g.add(body, band);
         for (let i = 0; i < 4; i++) {
-          const fin = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.55, 0.5), lambert(0x1c1c1c));
+          const fin = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.55, 0.5), lambert(bandCol));
           fin.rotation.y = (i * Math.PI) / 2;
           fin.position.y = 0.95;
           fin.translateZ(0.38);
           g.add(fin);
         }
+        g.scale.setScalar(size);
+        return g;
+      }
+      case 'warhead': {
+        // hulu ledak MIRV: kerucut gelap dengan jejak api supaya kelihatan dari jauh
+        const g = new THREE.Group();
+        const cone = new THREE.Mesh(new THREE.ConeGeometry(0.35, 1.1, 12), lambert(0x30343a));
+        cone.rotation.x = Math.PI;
+        const trail = glow(0xff9a3a, 4);
+        trail.position.y = 0.8;
+        g.add(cone, trail);
+        return g;
+      }
+      case 'rod': {
+        // batang tungsten dari orbit, membara karena gesekan atmosfer
+        const g = new THREE.Group();
+        const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 9, 10), new THREE.MeshLambertMaterial({ color: 0xb8c0c8, emissive: 0xff7a30, emissiveIntensity: 0.6 }));
+        const heat = glow(0xffe0b0, 7);
+        heat.position.y = -4;
+        g.add(rod, heat);
+        return g;
+      }
+      case 'antimateri': {
+        const g = new THREE.Group();
+        const shell = new THREE.Mesh(new THREE.IcosahedronGeometry(0.8, 1), new THREE.MeshLambertMaterial({ color: 0x2a1840, emissive: 0x9a5cff, emissiveIntensity: 0.9, flatShading: true }));
+        g.add(shell, glow(0xc28cff, 5));
+        return g;
+      }
+      case 'lubang_hitam_bom': {
+        const g = new THREE.Group();
+        const ball = new THREE.Mesh(new THREE.SphereGeometry(0.75, 20, 12), new THREE.MeshBasicMaterial({ color: 0x050008 }));
+        g.add(glow(0x7a3cff, 4.5), ball);
+        return g;
+      }
+      case 'asteroid': {
+        // batu raksasa membara dengan ekor api; tanpa kabut karena datang dari sangat jauh
+        const g = new THREE.Group();
+        const rock = new THREE.Mesh(
+          new THREE.DodecahedronGeometry(11, 1),
+          new THREE.MeshLambertMaterial({ color: 0x4a3326, emissive: 0xff4a10, emissiveIntensity: 0.55, flatShading: true, fog: false }),
+        );
+        const fire = glow(0xff7a2a, 55);
+        const tail = glow(0xffb060, 40);
+        tail.position.set(14, 22, -7);
+        g.add(tail, fire, rock);
         return g;
       }
       case 'meteor': {
@@ -185,6 +241,39 @@ export class Effects {
     this.rumbleT = 0;
     this.rumbleAmp = rumble;
     this.shake = Math.max(this.shake, rumble * 1.4);
+  }
+
+  private addFx<T extends Fx>(f: T): T {
+    this.fx.push(f);
+    this.group.add(f.group);
+    return f;
+  }
+
+  /** Pilar cahaya vertikal di (x,z) dari y0 ke y1. `pulse` = sinar bidik yang berkedip. */
+  beam(x: number, z: number, y0: number, y1: number, color: number, width: number, dur: number, peak = 0.8, pulse = false): void {
+    this.addFx(new Beam(x, z, y0, y1, color, width, dur, peak, pulse));
+  }
+
+  /** Cincin gelombang kejut di tanah. */
+  shockRing(pos: THREE.Vector3, radius: number, dur: number, color?: number): void {
+    this.addFx(new ShockRing(pos.x, Math.max(0, pos.y), pos.z, radius, dur, color));
+  }
+
+  /** Ledakan antimateri; bola pemusnah mencapai radius penuh `charge` detik setelah dipanggil. */
+  antimatter(pos: THREE.Vector3, radius: number, charge: number): void {
+    this.addFx(new AntimatterBurst(pos, radius, charge));
+  }
+
+  /** Lubang hitam yang menyedot: `onTick(r)` berkala selama `grow` detik, lalu `onEnd()`. */
+  blackHole(pos: THREE.Vector3, maxR: number, grow: number, onTick: (r: number) => void, onEnd: () => void): void {
+    this.addFx(new BlackHole(pos, maxR, grow, onTick, onEnd));
+  }
+
+  /** Gemuruh panjang (guncangan kamera) tanpa awan jamur. */
+  rumble(amp: number): void {
+    this.rumbleAmp = this.rumbleT >= 0 ? Math.max(amp, this.rumbleAmp) : amp;
+    this.rumbleT = 0;
+    this.shake = Math.max(this.shake, amp * 1.4);
   }
 
   flash(pos: THREE.Vector3, size: number, color = 0xffb347): void {
@@ -276,12 +365,31 @@ export class Effects {
     }
 
     let light = 0;
+    let violet = false;
+    for (let i = this.fx.length - 1; i >= 0; i--) {
+      const f = this.fx[i];
+      f.update(dt);
+      if (f instanceof AntimatterBurst) {
+        const l = f.lightLevel();
+        if (l > light) {
+          light = l;
+          violet = true;
+          this.nukeLight.position.copy(f.group.position);
+        }
+      }
+      if (f.done) {
+        this.group.remove(f.group);
+        f.dispose();
+        this.fx.splice(i, 1);
+      }
+    }
     for (let i = this.nukes.length - 1; i >= 0; i--) {
       const n = this.nukes[i];
       n.update(dt);
       const l = n.lightLevel();
       if (l > light) {
         light = l;
+        violet = false;
         this.nukeLight.position.copy(n.firePos);
       }
       if (n.done) {
@@ -291,6 +399,7 @@ export class Effects {
       }
     }
     this.nukeLight.intensity = light * 9;
+    this.nukeLight.color.setHex(violet ? 0xb07aff : 0xffa860);
 
     this.shake = Math.max(0, this.shake - dt * 2.5);
     if (this.rumbleT >= 0) {

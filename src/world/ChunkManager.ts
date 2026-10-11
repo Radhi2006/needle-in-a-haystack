@@ -29,6 +29,23 @@ export class ChunkManager {
         for (let cx = ax; cx <= bx; cx++) this.dirty.add(cx + this.ncx * (cy + this.ncy * cz));
   }
 
+  /** Tandai semua chunk yang bersinggungan dengan silinder sel (pusat fx,fz; radius rc; y0..y1). */
+  markRegion(fx: number, fz: number, rc: number, y0: number, y1: number): void {
+    const ax = Math.max(0, Math.floor((fx - rc - 1) / CHUNK)), bx = Math.min(this.ncx - 1, Math.floor((fx + rc + 1) / CHUNK));
+    const az = Math.max(0, Math.floor((fz - rc - 1) / CHUNK)), bz = Math.min(this.ncz - 1, Math.floor((fz + rc + 1) / CHUNK));
+    const ay = Math.max(0, Math.floor((y0 - 1) / CHUNK)), by = Math.min(this.ncy - 1, Math.floor((y1 + 1) / CHUNK));
+    const r = rc + 1;
+    for (let cz = az; cz <= bz; cz++) {
+      for (let cx = ax; cx <= bx; cx++) {
+        // titik terdekat kotak chunk ke pusat
+        const nx = Math.max(cx * CHUNK, Math.min(fx, cx * CHUNK + CHUNK));
+        const nz = Math.max(cz * CHUNK, Math.min(fz, cz * CHUNK + CHUNK));
+        if ((nx - fx) ** 2 + (nz - fz) ** 2 > r * r) continue;
+        for (let cy = ay; cy <= by; cy++) this.dirty.add(cx + this.ncx * (cy + this.ncy * cz));
+      }
+    }
+  }
+
   get pending(): number {
     return this.dirty.size;
   }
@@ -37,20 +54,24 @@ export class ChunkManager {
   update(px: number, py: number, pz: number, budgetMs: number): void {
     if (!this.dirty.size) return;
     const t0 = performance.now();
-    let keys = [...this.dirty];
-    if (keys.length > 1) {
-      const d = (key: number) => {
-        const cx = key % this.ncx;
-        const cy = Math.floor(key / this.ncx) % this.ncy;
-        const cz = Math.floor(key / (this.ncx * this.ncy));
-        const wx = this.grid.originX + (cx + 0.5) * CHUNK * CELL;
-        const wy = (cy + 0.5) * CHUNK * CELL;
-        const wz = this.grid.originZ + (cz + 0.5) * CHUNK * CELL;
-        return (wx - px) ** 2 + (wy - py) ** 2 + (wz - pz) ** 2;
-      };
-      keys = keys.map((k) => [k, d(k)] as const).sort((a, b) => a[1] - b[1]).map((e) => e[0]);
+    const keys = [...this.dirty];
+    // Urutkan terdekat dulu. Jarak (dibulatkan) & indeks dipadatkan ke satu angka supaya bisa
+    // memakai sort numerik bawaan Float64Array — tetap cepat walau puluhan ribu chunk kotor (ledakan raksasa).
+    const n = keys.length;
+    const order = new Float64Array(n);
+    for (let i = 0; i < n; i++) {
+      const key = keys[i];
+      const cx = key % this.ncx;
+      const cy = Math.floor(key / this.ncx) % this.ncy;
+      const cz = Math.floor(key / (this.ncx * this.ncy));
+      const wx = this.grid.originX + (cx + 0.5) * CHUNK * CELL;
+      const wy = (cy + 0.5) * CHUNK * CELL;
+      const wz = this.grid.originZ + (cz + 0.5) * CHUNK * CELL;
+      order[i] = Math.floor((wx - px) ** 2 + (wy - py) ** 2 + (wz - pz) ** 2) * n + i;
     }
-    for (const key of keys) {
+    order.sort();
+    for (let j = 0; j < n; j++) {
+      const key = keys[order[j] % n];
       this.build(key);
       this.dirty.delete(key);
       if (performance.now() - t0 > budgetMs) break;

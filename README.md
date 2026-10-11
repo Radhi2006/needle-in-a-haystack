@@ -35,6 +35,14 @@ Tambahkan `?debug` di URL untuk mode debug: jarum selalu terlihat, tombol **K** 
   🌟 Jam Emas (uang ×3), ☄️ Hujan Meteor, 🌪️ Angin Puting Beliung, 🪂 Paket Udara, 🛒 Pedagang Keliling (diskon 50%),
   🐐 Kambing Emas Kabur (kejar & tangkap).
 
+## Bom raksasa (untuk tumpukan miliaran helai)
+
+Dibidik sampai ±220 m, dijatuhkan dari langit/orbit, dan uangnya dibayar 100%:
+☢️ Bom Nuklir (r 40 m) · 🚀 Rudal MIRV (6 hulu ledak r 32 m) · 🛰️ Tongkat Dewa (9 batang tungsten berderet 240 m) ·
+🌞 Bom Hidrogen Tsar (r 70 m) · 🕳️ Bom Lubang Hitam (menyedot & membesar sampai r 85 m) ·
+🔮 Bom Antimateri (bola r 100 m) · 🌑 Asteroid Kiamat (kawah r 190 m).
+Ledakan sebesar ini memakai `HaystackGrid.carve` (per kolom, tanpa listener per sel) supaya tidak membuat game tersendat.
+
 ## Cara kerjanya (singkat)
 
 - **Tanpa database.** Tumpukan disimpan sebagai grid `Uint8Array` berisi *jumlah helai per sel* (0,5 m³).

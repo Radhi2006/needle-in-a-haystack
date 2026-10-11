@@ -85,3 +85,34 @@ describe('mengambil helai', () => {
     expect(grid.count(cx, 0, grid.sz >> 1)).toBeGreaterThan(0);
   });
 });
+
+describe('HaystackGrid.carve (ledakan raksasa)', () => {
+  it('carveSphere mengosongkan bola, sama dengan takeSphere tanpa batas, & total tetap konsisten', () => {
+    const a = HaystackGrid.generate(5, 2_000_000, 100).grid;
+    const b = HaystackGrid.generate(5, 2_000_000, 100).grid;
+    const regions: number[] = [];
+    a.regionListener = (_fx, _fz, rc) => regions.push(rc);
+    const taken = a.carveSphere(1, 0, -2, 6);
+    expect(taken).toBeGreaterThan(0);
+    expect(taken).toBe(b.takeSphere(1, 0, -2, 6, Infinity));
+    expect(a.counts).toEqual(b.counts);
+    expect(a.remaining).toBe(a.initialTotal - taken);
+    expect(a.sumCounts()).toBe(a.remaining);
+    expect(regions.length).toBe(1);
+  });
+
+  it('carveShell setelah bola kecil = satu bola besar (lubang hitam yang membesar)', () => {
+    const a = HaystackGrid.generate(6, 2_000_000, 100).grid;
+    const b = HaystackGrid.generate(6, 2_000_000, 100).grid;
+    const t = a.carveSphere(2, 3, 1, 2.5) + a.carveShell(2, 3, 1, 2.5, 5) + a.carveShell(2, 3, 1, 5, 7);
+    expect(t).toBe(b.carveSphere(2, 3, 1, 7));
+    expect(a.counts).toEqual(b.counts);
+  });
+
+  it('kawah raksasa melebihi ukuran grid tetap aman & menghapus semuanya', () => {
+    const { grid } = HaystackGrid.generate(8, 1_000_000, 100);
+    const taken = grid.carve(0, 0, 500, () => [0, 1e4]);
+    expect(taken).toBe(grid.initialTotal);
+    expect(grid.sumCounts()).toBe(0);
+  });
+});

@@ -24,14 +24,18 @@ export interface ConsumableSpec {
   /**
    * blast = satu ledakan, cluster = pecah jadi bom-bom kecil, drill = ledakan beruntun menembus ke bawah,
    * nuke = dijatuhkan dari langit + awan jamur, fan = tiup lapisan luar, buff = efek sementara.
+   * Bom raksasa (semuanya dibayar 100%): mirv = rudal berisi beberapa hulu ledak nuklir,
+   * orbital = batang tungsten dari satelit berderet sepanjang garis bidikan, antimatter = bola pemusnah,
+   * blackhole = lubang hitam yang menyedot & membesar, asteroid = kawah raksasa.
    */
-  kind: 'blast' | 'cluster' | 'drill' | 'nuke' | 'fan' | 'buff';
+  kind: 'blast' | 'cluster' | 'drill' | 'nuke' | 'mirv' | 'orbital' | 'antimatter' | 'blackhole' | 'asteroid' | 'fan' | 'buff';
   radius?: number;
-  /** cluster: jumlah bom kecil. */
+  /** cluster/mirv/orbital: jumlah bom kecil / hulu ledak / batang. */
   count?: number;
-  /** cluster: radius sebaran bom kecil (m). */
+  /** cluster/mirv: radius sebaran (m). orbital: panjang garis serangan (m). */
   spread?: number;
   buff?: BuffId;
+  /** buff: lama efek (detik). blackhole: lama menyedot (detik). */
   duration?: number;
 }
 
@@ -151,6 +155,18 @@ export const ITEMS: ItemDef[] = [
     desc: 'Bola api raksasa (r 8 m). Jerami di sekitarnya langsung jadi abu.', consumable: { kind: 'blast', radius: 8 } },
   { id: 'nuklir', name: 'Bom Nuklir Jerami', icon: '☢️', category: 'consumable', price: 150_000_000, growth: 1, max: MANY,
     desc: 'Dijatuhkan dari langit. Meratakan jerami dalam radius 40 m dari tanah sampai puncak + awan jamur raksasa. Uang 100% (tidak dipotong seperti bom biasa). Larilah!', consumable: { kind: 'nuke', radius: 40 } },
+  { id: 'mirv', name: 'Rudal Nuklir MIRV', icon: '🚀', category: 'consumable', price: 400_000_000, growth: 1, max: MANY,
+    desc: 'Satu rudal, 6 hulu ledak nuklir (r 32 m) yang menghujani area selebar ±150 m sekaligus. 6 awan jamur! Uang 100%.', consumable: { kind: 'mirv', radius: 32, count: 6, spread: 75 } },
+  { id: 'orbital', name: 'Tongkat Dewa (Serangan Orbital)', icon: '🛰️', category: 'consumable', price: 500_000_000, growth: 1, max: MANY,
+    desc: 'Satelit menembakkan 9 batang tungsten beruntun sepanjang 240 m searah bidikanmu. Tiap batang membolongi tumpukan sampai tanah (r 15 m) + kawah r 24 m. Uang 100%.', consumable: { kind: 'orbital', radius: 24, count: 9, spread: 240 } },
+  { id: 'hidrogen', name: 'Bom Hidrogen Tsar', icon: '🌞', category: 'consumable', price: 700_000_000, growth: 1, max: MANY,
+    desc: 'Nuklir ×5 lebih dahsyat: kawah r 70 m dari tanah sampai puncak + awan jamur setinggi 250 m. Uang 100%.', consumable: { kind: 'nuke', radius: 70 } },
+  { id: 'lubang_hitam_bom', name: 'Bom Lubang Hitam', icon: '🕳️', category: 'consumable', price: 900_000_000, growth: 1, max: MANY,
+    desc: 'Membuka lubang hitam yang melayang & menyedot jerami selama 7 detik, terus membesar sampai r 85 m. Jangan berdiri terlalu dekat! Uang 100%.', consumable: { kind: 'blackhole', radius: 85, duration: 7 } },
+  { id: 'antimateri', name: 'Bom Antimateri', icon: '🔮', category: 'consumable', price: 1_500_000_000, growth: 1, max: MANY,
+    desc: 'Materi bertemu antimateri: SEMUA jerami dalam bola r 100 m musnah tanpa sisa dalam satu kilatan ungu. Uang 100%.', consumable: { kind: 'antimatter', radius: 100 } },
+  { id: 'asteroid', name: 'Asteroid Kiamat', icon: '🌑', category: 'consumable', price: 5_000_000_000, growth: 1, max: MANY,
+    desc: 'Panggil asteroid raksasa dari luar angkasa. Kawah r 190 m — cukup untuk meratakan hampir seluruh tumpukan 9 miliar helai. Uang 100%. Selamat tinggal, jerami.', consumable: { kind: 'asteroid', radius: 190 } },
   { id: 'kipas', name: 'Kipas Angin', icon: '🪭', category: 'consumable', price: 12_000, growth: 1, max: MANY,
     desc: 'Meniup lapisan luar jerami dalam radius 4 m.', consumable: { kind: 'fan', radius: 4 } },
   { id: 'r_cepat', name: 'Ramuan Kecepatan', icon: '⚡', category: 'consumable', price: 2_000, growth: 1, max: MANY,
