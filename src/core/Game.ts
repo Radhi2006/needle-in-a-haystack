@@ -20,6 +20,7 @@ import { Effects } from '../world/Effects';
 import { Environment } from '../world/Environment';
 import { createHayMaterial } from '../world/hayMaterial';
 import { HaystackGrid } from '../world/HaystackGrid';
+import { easeOut } from '../world/Megabombs';
 import { NeedleView } from '../world/Needle';
 import { Particles } from '../world/Particles';
 import { Pickups, type Pickup } from '../world/Pickups';
@@ -37,7 +38,11 @@ import { newState, type GameState, type Settings } from './state';
 type Phase = 'loading' | 'menu' | 'playing' | 'shop' | 'win';
 
 /** Bom raksasa: dibidik jauh & dijatuhkan dari langit/orbit (bukan dilempar). */
-const SKY_KINDS = new Set<ConsumableSpec['kind']>(['nuke', 'mirv', 'orbital', 'antimatter', 'blackhole', 'asteroid']);
+const SKY_KINDS = new Set<ConsumableSpec['kind']>([
+  'nuke', 'mirv', 'orbital', 'antimatter', 'blackhole', 'asteroid', 'carpet', 'storm', 'ufo', 'asteroids', 'supernova', 'bigbang',
+]);
+/** Bom yang tidak dilempar/dijatuhkan sebagai benda: serangannya langsung muncul di titik bidikan. */
+const DIRECT_KINDS = new Set<ConsumableSpec['kind']>(['carpet', 'storm', 'ufo', 'asteroids', 'supernova', 'bigbang']);
 const DOWN = new THREE.Vector3(0, -1, 0);
 
 const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => setTimeout(r, 0)));
@@ -574,6 +579,8 @@ export class Game {
         this.detonate(def, to);
         this.sfx.charge(1.6);
         this.hud.toast('🛰️ Satelit mengunci target... batang tungsten meluncur dari orbit!', 3500);
+      } else if (DIRECT_KINDS.has(c.kind)) {
+        this.detonate(def, to);
       } else if (c.kind === 'asteroid') {
         const from = to.clone().add(new THREE.Vector3(-260, 430, 150));
         const dur = 5.5;
@@ -639,6 +646,9 @@ export class Game {
         }
         break;
       }
+      case 'napalm':
+        this.napalmFire(p, r, c.duration ?? 5);
+        break;
       case 'nuke':
         this.nukeBlast(p, r);
         break;
@@ -656,6 +666,24 @@ export class Game {
         break;
       case 'asteroid':
         this.asteroidImpact(p, r);
+        break;
+      case 'carpet':
+        this.carpetBomb(p, c);
+        break;
+      case 'storm':
+        this.thunderStorm(p, c);
+        break;
+      case 'ufo':
+        this.ufoAbduction(p, r, c.duration ?? 6);
+        break;
+      case 'asteroids':
+        this.asteroidShower(p, c);
+        break;
+      case 'supernova':
+        this.supernova(p, r);
+        break;
+      case 'bigbang':
+        this.bigBang();
         break;
       case 'fan': {
         const taken = this.grid.takeExposedLayer(p.x, p.y, p.z, r, 0.6);
@@ -691,7 +719,7 @@ export class Game {
     if (quiet) this.sfx.boom(14);
     else this.sfx.nuke();
     const d = this.eyePos(this.tmp).distanceTo(p);
-    this.effects.nuke(p, Math.max(0.5, Math.min(2, 2.2 - d / (r * 4))), r / 14);
+    this.effects.nuke(p, Math.max(0.5, Math.min(2, 2.2 - d / (r * 4))), Math.min(7, r / 14));
     this.blindingFlash(p, 120);
     if (d < r * 1.5) this.knockback(p, 26 * (1 - d / (r * 1.5)) + 6, 14);
     // bom raksasa dibayar penuh, tidak dipotong BLAST_MONEY_RATE
@@ -701,7 +729,7 @@ export class Game {
   }
 
   /** Kilatan layar penuh, lebih terang bila dekat & menghadap ledakan. */
-  private blindingFlash(p: THREE.Vector3, falloff: number, tint?: 'violet'): void {
+  private blindingFlash(p: THREE.Vector3, falloff: number, tint?: 'violet' | 'cosmic'): void {
     const eye = this.eyePos(this.tmp);
     const d = eye.distanceTo(p);
     const facing = this.tmp2.copy(p).sub(eye).normalize().dot(this.dir);
@@ -837,20 +865,296 @@ export class Game {
     });
   }
 
-  /** Asteroid menghantam: kawah setengah bola raksasa dari tanah. */
-  private asteroidImpact(p: THREE.Vector3, r: number): void {
+  /**
+   * Asteroid menghantam: kawah setengah bola raksasa dari tanah.
+   * `quiet` = bagian dari hujan asteroid (tanpa toast & dentuman nuklir, didorong hanya bila dekat).
+   */
+  private asteroidImpact(p: THREE.Vector3, r: number, quiet = false): number {
     const taken = this.grid.carve(p.x, p.z, r, (d) => [0, Math.sqrt(Math.max(0, r * r - d * d))]);
     this.particles.burst(p.x, p.y, p.z, 220, 45, 40);
-    this.sfx.nuke();
+    if (!quiet) this.sfx.nuke();
     this.sfx.boom(30);
-    this.effects.nuke(p.clone().setY(0), 2, 5.5);
+    this.effects.nuke(p.clone().setY(0), 2, Math.min(5.5, r / 35));
     this.effects.shockRing(p.clone().setY(0), r * 2.4, 3.5, 0xffd9a0);
     this.effects.shockRing(p.clone().setY(0), r * 1.3, 2.2);
-    this.hud.nukeFlash(1);
     const d = this.eyePos(this.tmp).distanceTo(p);
-    this.knockback(p, Math.max(8, 34 * (1 - d / (r * 2))), 18);
-    this.gain(taken, 1, 'blast');
-    this.hud.toast(`🌑 DAMPAK ASTEROID! ${fmtInt(taken)} helai jerami terhapus dari muka bumi.`, 6000);
+    if (quiet) this.blindingFlash(p, r * 3);
+    else this.hud.nukeFlash(1);
+    if (!quiet || d < r * 2) this.knockback(p, Math.max(8, 34 * (1 - d / (r * 2))), 18);
+    this.gain(taken, 1, quiet ? 'auto' : 'blast');
+    if (!quiet) this.hud.toast(`🌑 DAMPAK ASTEROID! ${fmtInt(taken)} helai jerami terhapus dari muka bumi.`, 6000);
+    return taken;
+  }
+
+  /** Tinggi permukaan jerami (dunia) di (x, z), 0 bila kolomnya kosong. */
+  private groundY(x: number, z: number): number {
+    return (this.grid.topY(this.grid.cellX(x), this.grid.cellZ(z)) + 1) * CELL;
+  }
+
+  /** Pop & toast ringkasan untuk serangan yang uangnya dikumpulkan diam-diam ('auto') selama berlangsung. `#` = jumlah helai. */
+  private strikeSummary(icon: string, total: number, rate: number, msg: string): void {
+    this.hud.pop(`${icon} +${fmtShort(total)} 🌾 +${fmtMoney(total * moneyMult(this.state) * rate)}`, 'blast');
+    this.hud.toast(`${icon} ${msg.replace('#', fmtInt(total))}`, 5000);
+  }
+
+  /** Napalm: cipratan api, lalu api menjalar melebar & melahap jerami lapis demi lapis (uang dipotong seperti bom biasa). */
+  private napalmFire(p: THREE.Vector3, r: number, dur: number): void {
+    const r0 = 2;
+    let total = this.grid.carveSphere(p.x, p.y, p.z, r0);
+    this.gain(total, BLAST_MONEY_RATE, 'auto');
+    this.effects.flash(p, 6, 0xff7a1a);
+    this.particles.burst(p.x, p.y, p.z, 90, 6, 5);
+    this.sfx.boom(2);
+    this.sfx.fire(dur);
+    this.effects.napalm(p, r, dur, (x, z) => this.groundY(x, z));
+    const step = 0.25;
+    const n = Math.round(dur / step);
+    let prev = r0;
+    for (let k = 1; k <= n; k++) {
+      this.effects.after(k * step, () => {
+        // radius sama dengan api visual (NapalmFire.radius); sesekali sapu penuh untuk jerami yang runtuh ke dalam
+        const cur = r0 + (r - r0) * easeOut(k / n);
+        const taken = k % 4 === 0 ? this.grid.carveSphere(p.x, p.y, p.z, cur) : this.grid.carveShell(p.x, p.y, p.z, prev, cur);
+        prev = cur;
+        total += taken;
+        this.gain(taken, BLAST_MONEY_RATE, 'auto');
+        if (this.tmp.copy(this.player.pos).sub(p).setY(0).length() < cur * 0.9) this.knockback(p, 4, 3);
+        if (k === n) this.strikeSummary('🌋', total, BLAST_MONEY_RATE, 'Api napalm padam. # helai jerami jadi abu.');
+      });
+    }
+  }
+
+  /** Ledakan bom udara (bom karpet): bola penuh, uang 100%, tanpa pop per ledakan. */
+  private skyBlast(q: THREE.Vector3, r: number): number {
+    const taken = this.grid.carveSphere(q.x, q.y, q.z, r);
+    this.effects.flash(q, r * 2.2);
+    this.effects.flash(q, r * 3, 0xff6a1a);
+    this.particles.burst(q.x, q.y, q.z, 60, 4 + r * 1.5, 4 + r);
+    this.sfx.boom(r);
+    const d = this.eyePos(this.tmp).distanceTo(q);
+    this.effects.shake = Math.max(this.effects.shake, Math.max(0, 1 - d / (r * 8)) * 1.2);
+    if (d < r + 2) this.knockback(q, 10, 7);
+    this.gain(taken, 1, 'auto');
+    return taken;
+  }
+
+  /** Pesawat pembom melintas searah bidikan & menjatuhkan bom berderet di sepanjang garis. */
+  private carpetBomb(p: THREE.Vector3, c: ConsumableSpec): void {
+    const n = c.count ?? 24;
+    const r = c.radius ?? 7;
+    const len = c.spread ?? 160;
+    const fwd = this.flatDir(new THREE.Vector3());
+    const side = new THREE.Vector3(-fwd.z, 0, fwd.x);
+    const alt = this.grid.sy * CELL + 45;
+    const margin = 220;
+    const speed = 85;
+    const at = (off: number, y: number) => new THREE.Vector3(p.x + fwd.x * off, y, p.z + fwd.z * off);
+    const flight = (len + margin * 2) / speed;
+    this.effects.bomber(at(-len / 2 - margin, alt), at(len / 2 + margin, alt), flight);
+    this.sfx.flyby(flight);
+    this.hud.toast('🛩️ Pesawat pembom mendekat dari belakangmu... bom karpet dijatuhkan!', 4000);
+    // bom dilepas sebelum titik sasaran lalu meluncur maju sambil jatuh
+    const lead = 35;
+    let total = 0;
+    let left = n;
+    for (let k = 0; k < n; k++) {
+      const off = -len / 2 + (k * len) / Math.max(1, n - 1);
+      const jitter = (Math.random() - 0.5) * 12;
+      const q = this.surfacePoint(p.x + fwd.x * off + side.x * jitter, p.z + fwd.z * off + side.z * jitter);
+      q.y = Math.max(0.2, q.y);
+      const drop = at(off - lead, alt - 3).addScaledVector(side, jitter);
+      this.effects.after((off - lead + len / 2 + margin) / speed, () => {
+        this.effects.throwObject('carpet_bomb', drop, q, () => {
+          total += this.skyBlast(q, r);
+          if (--left === 0) this.strikeSummary('🛩️', total, 1, 'Bom karpet selesai! # helai jerami rata dengan tanah.');
+        }, { dur: 1.4, arc: 0, spin: false });
+      });
+    }
+  }
+
+  /** Awan badai menggantung di atas target & menyambarkan petir acak yang membolongi jerami sampai tanah. */
+  private thunderStorm(p: THREE.Vector3, c: ConsumableSpec): void {
+    const n = c.count ?? 36;
+    const r = c.radius ?? 4.5;
+    const spread = c.spread ?? 55;
+    const dur = c.duration ?? 6;
+    const alt = this.grid.sy * CELL + 40;
+    const gather = 1.5;
+    const cloud = this.effects.stormCloud(new THREE.Vector3(p.x, alt, p.z), spread, gather + dur);
+    this.sfx.roar(gather);
+    this.hud.toast('🌩️ Langit menggelap... awan badai berkumpul di atas tumpukan!', 4000);
+    let total = 0;
+    let left = n;
+    for (let k = 0; k < n; k++) {
+      this.effects.after(gather + ((k + Math.random()) / n) * dur, () => {
+        const a = Math.random() * Math.PI * 2;
+        const d = spread * Math.sqrt(Math.random());
+        const q = this.surfacePoint(p.x + Math.cos(a) * d, p.z + Math.sin(a) * d);
+        q.y = Math.max(0.2, q.y);
+        this.effects.lightning(new THREE.Vector3(q.x + (Math.random() - 0.5) * 20, alt - 4, q.z + (Math.random() - 0.5) * 20), q);
+        cloud.flicker(q.x, q.z);
+        const taken = this.grid.carve(q.x, q.z, r, () => [0, 1e4]);
+        this.effects.flash(q, r * 4, 0xcfe0ff);
+        this.particles.burst(q.x, q.y, q.z, 50, 6, 8);
+        const dist = this.eyePos(this.tmp).distanceTo(q);
+        this.sfx.thunder(Math.max(0.3, Math.min(1, 1.2 - dist / 200)));
+        this.effects.shake = Math.max(this.effects.shake, Math.max(0.1, 0.8 - dist / 150));
+        if (this.tmp.copy(this.player.pos).sub(q).setY(0).length() < r + 1.5) this.knockback(q, 12, 8);
+        total += taken;
+        this.gain(taken, 1, 'auto');
+        if (--left === 0) this.strikeSummary('🌩️', total, 1, 'Badai reda. # helai jerami tersambar petir.');
+      });
+    }
+  }
+
+  /** Piring terbang menyedot kolom jerami dari puncak sampai tanah. */
+  private ufoAbduction(p: THREE.Vector3, r: number, dur: number): void {
+    // puncak tertinggi di bawah sinar (beberapa sampel cukup; sisanya disapu bersih di akhir)
+    let top = this.groundY(p.x, p.z);
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      top = Math.max(top, this.groundY(p.x + Math.cos(a) * r * 0.7, p.z + Math.sin(a) * r * 0.7));
+    }
+    top += 2;
+    const hover = new THREE.Vector3(p.x, top + 30, p.z);
+    let total = 0;
+    this.sfx.ufo(dur + 3.4);
+    this.hud.toast('👽 Piring terbang datang... jangan berdiri di bawah sinarnya!', 4000);
+    this.effects.ufo(hover, r, dur, (frac) => {
+      const level = top * (1 - frac);
+      const taken = this.grid.carve(p.x, p.z, r, () => [level, 1e4]);
+      total += taken;
+      this.gain(taken, 1, 'auto');
+      this.effects.shake = Math.max(this.effects.shake, 0.12);
+      // pemain di bawah sinar ikut terangkat
+      const pl = this.player.pos;
+      if ((pl.x - p.x) ** 2 + (pl.z - p.z) ** 2 < r * r && pl.y < hover.y - 12) this.player.vel.y = Math.max(this.player.vel.y, 5);
+    }, () => {
+      const taken = this.grid.carve(p.x, p.z, r, () => [0, 1e4]);
+      total += taken;
+      this.gain(taken, 1, 'auto');
+      this.strikeSummary('👽', total, 1, 'UFO pergi membawa # helai jerami. Semoga mereka suka.');
+    });
+  }
+
+  /** Beberapa asteroid menghantam berurutan di sekitar target; yang terakhir tepat di tengah. */
+  private asteroidShower(p: THREE.Vector3, c: ConsumableSpec): void {
+    const n = c.count ?? 7;
+    const r = c.radius ?? 120;
+    const spread = c.spread ?? 200;
+    const fall = 4.5;
+    const gap = 0.85;
+    this.sfx.roar(fall + gap * (n - 1));
+    this.sfx.whistle(fall, 0.08);
+    this.hud.toast('☄️ HUJAN ASTEROID! Langit dipenuhi batu membara...', 5000);
+    let total = 0;
+    let left = n;
+    const a0 = Math.random() * Math.PI * 2;
+    for (let i = 0; i < n; i++) {
+      const last = i === n - 1;
+      const a = a0 + (i / Math.max(1, n - 1)) * Math.PI * 2 + (Math.random() - 0.5) * 0.5;
+      const d = last ? 0 : spread * (0.6 + Math.random() * 0.4);
+      const to = this.surfacePoint(p.x + Math.cos(a) * d, p.z + Math.sin(a) * d);
+      to.y = Math.max(0.2, to.y);
+      const from = to.clone().add(new THREE.Vector3(-260 + Math.random() * 80, 430, 150 + Math.random() * 80));
+      this.effects.after(i * gap, () => {
+        this.effects.throwObject('hujan_asteroid', from, to, () => {
+          if (i === 0) this.sfx.nuke();
+          total += this.asteroidImpact(to, r, true);
+          if (--left === 0) this.strikeSummary('☄️', total, 1, 'Hujan asteroid berakhir. # helai jerami terhapus.');
+        }, { dur: fall, arc: 0, spin: false });
+      });
+    }
+  }
+
+  /**
+   * Pengikisan untuk ledakan bintang yang mengembang (supernova / Big Bang): tiap tick hanya kulit bola yang baru
+   * supaya beban terbagi ke banyak frame. Di akhir, jerami yang sempat runtuh ke dalam disapu dengan `span`
+   * per cincin selebar `reach / 6` di frame yang berbeda (sapuan penuh tumpukan raksasa bisa ±300 ms).
+   */
+  private stellarCarve(center: THREE.Vector3, reach: number, span: (d: number) => number[], onTotal: (total: number) => void) {
+    let prev = 0;
+    let total = 0;
+    const eat = (taken: number) => {
+      total += taken;
+      this.gain(taken, 1, 'auto');
+    };
+    return {
+      tick: (R: number) => {
+        if (R <= prev) return;
+        eat(this.grid.carveShell(center.x, center.y, center.z, prev, R));
+        prev = R;
+      },
+      end: () => {
+        const parts = 6;
+        for (let i = 0; i < parts; i++) {
+          const a = (reach * i) / parts;
+          const b = (reach * (i + 1)) / parts;
+          this.effects.after(i * 0.05, () => {
+            eat(this.grid.carve(center.x, center.z, b, (d) => (d < a ? null : span(d))));
+            if (i === parts - 1) onTotal(total);
+          });
+        }
+      },
+    };
+  }
+
+  /** Bintang mini membengkak jadi raksasa merah, runtuh, lalu meledak sebagai supernova. */
+  private supernova(p: THREE.Vector3, r: number): void {
+    const center = new THREE.Vector3(p.x, this.groundY(p.x, p.z) + 45, p.z);
+    const charge = 3.4;
+    const carve = this.stellarCarve(
+      center,
+      r,
+      (d) => {
+        const h = Math.sqrt(Math.max(0, r * r - d * d));
+        return [center.y - h, center.y + h];
+      },
+      (total) => this.strikeSummary('🌟', total, 1, 'SUPERNOVA! # helai jerami menjadi debu bintang.'),
+    );
+    this.sfx.charge(charge);
+    this.sfx.drone(charge);
+    this.hud.toast('🌟 Bintang mini menyala di atas tumpukan... ia mulai membengkak!', 4000);
+    this.effects.stellar(center, r, {
+      charge, expand: 2.4, coreFrom: 0xfff4c0, coreTo: 0xff4a1a, coreSize: 26,
+      shell: 0x8fd0ff, halo: 0xffb070, ring: 0xff7ad0, light: 0xfff0d0, stars: 500, motes: false, rainbow: false,
+    }, () => {
+      this.sfx.nuke();
+      this.sfx.boom(40);
+      this.blindingFlash(center, 500);
+      this.effects.rumble(2.2);
+      this.effects.shockRing(center.clone().setY(0), r * 1.3, 3, 0xbfe4ff);
+      const d = this.eyePos(this.tmp).distanceTo(center);
+      if (d < r * 1.2) this.knockback(center, 30 * (1 - d / (r * 1.2)) + 8, 16);
+    }, carve.tick, carve.end);
+  }
+
+  /** Big Bang: singularitas di atas pusat tumpukan meledak & menghapus SELURUH tumpukan, sebesar apa pun. */
+  private bigBang(): void {
+    const center = new THREE.Vector3(0, this.groundY(0, 0) + 30, 0);
+    const halfW = (Math.max(this.grid.sx, this.grid.sz) * CELL) / 2;
+    const rMax = Math.hypot(halfW, halfW, Math.max(center.y, this.grid.sy * CELL - center.y)) + 2;
+    const charge = 4;
+    const carve = this.stellarCarve(
+      center,
+      rMax,
+      () => [0, 1e4],
+      (total) => this.strikeSummary('🌌', total, 1, 'Alam semesta lahir kembali. # helai jerami kembali ke ketiadaan — tinggal jarumnya!'),
+    );
+    this.sfx.charge(charge);
+    this.sfx.drone(charge);
+    this.hud.toast('🌌 Ruang & waktu melengkung... semua cahaya tersedot ke satu titik.', 4500);
+    this.effects.stellar(center, rMax, {
+      charge, expand: 3.2, coreFrom: 0xffffff, coreTo: 0x9a6bff, coreSize: 9,
+      shell: 0xffffff, halo: 0xffffff, ring: 0x9fd8ff, light: 0xffffff, stars: 900, motes: true, rainbow: true,
+    }, () => {
+      this.sfx.nuke();
+      this.sfx.boom(50);
+      this.hud.nukeFlash(1, 'cosmic');
+      this.effects.rumble(2.6);
+      this.effects.shockRing(new THREE.Vector3(0, 0, 0), rMax, 3.5, 0xe0d0ff);
+      this.knockback(center, 14, 14);
+    }, carve.tick, carve.end);
   }
 
   private knockback(from: THREE.Vector3, force: number, up: number): void {

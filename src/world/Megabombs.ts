@@ -7,24 +7,31 @@ export interface Fx {
   readonly done: boolean;
   update(dt: number): void;
   dispose(): void;
+  /** Efek yang memancarkan cahaya ke sekitar: intensitas (0..1) & warnanya. */
+  lightLevel?(): number;
+  readonly lightColor?: number;
 }
 
-const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
-const easeOut = (v: number) => 1 - Math.pow(1 - clamp01(v), 3);
+export const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+export const easeOut = (v: number) => 1 - Math.pow(1 - clamp01(v), 3);
 
-function disposeTree(root: THREE.Object3D): void {
+export function disposeTree(root: THREE.Object3D): void {
   root.traverse((o) => {
     if (o instanceof THREE.Mesh) {
       o.geometry.dispose();
       (o.material as THREE.Material).dispose();
     } else if (o instanceof THREE.Sprite) o.material.dispose();
+    else if (o instanceof THREE.Points) {
+      o.geometry.dispose();
+      (o.material as THREE.Material).dispose();
+    }
   });
 }
 
-const additive = (color: number, side: THREE.Side = THREE.FrontSide) =>
+export const additive = (color: number, side: THREE.Side = THREE.FrontSide) =>
   new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side, fog: false });
 
-const glowSprite = (color: number, blending: THREE.Blending = THREE.AdditiveBlending) =>
+export const glowSprite = (color: number, blending: THREE.Blending = THREE.AdditiveBlending) =>
   new THREE.Sprite(new THREE.SpriteMaterial({ map: getSoftGlowTexture(), color, blending, transparent: true, depthWrite: false, fog: false }));
 
 /** Pilar cahaya vertikal (sinar bidik satelit, jejak batang tungsten). */
@@ -97,6 +104,7 @@ export class ShockRing implements Fx {
 export class AntimatterBurst implements Fx {
   readonly group = new THREE.Group();
   readonly duration: number;
+  readonly lightColor = 0xb07aff;
   private t = 0;
   private core: THREE.Sprite;
   private halo: THREE.Sprite;

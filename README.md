@@ -40,8 +40,16 @@ Tambahkan `?debug` di URL untuk mode debug: jarum selalu terlihat, tombol **K** 
 Dibidik sampai ±220 m, dijatuhkan dari langit/orbit, dan uangnya dibayar 100%:
 ☢️ Bom Nuklir (r 40 m) · 🚀 Rudal MIRV (6 hulu ledak r 32 m) · 🛰️ Tongkat Dewa (9 batang tungsten berderet 240 m) ·
 🌞 Bom Hidrogen Tsar (r 70 m) · 🕳️ Bom Lubang Hitam (menyedot & membesar sampai r 85 m) ·
-🔮 Bom Antimateri (bola r 100 m) · 🌑 Asteroid Kiamat (kawah r 190 m).
-Ledakan sebesar ini memakai `HaystackGrid.carve` (per kolom, tanpa listener per sel) supaya tidak membuat game tersendat.
+🔮 Bom Antimateri (bola r 100 m) · ☣️ Bom Kobalt Kiamat (kawah r 120 m) · 🌑 Asteroid Kiamat (kawah r 190 m) ·
+☄️ Hujan Asteroid (7 kawah r 120 m selebar ±400 m) · 🌟 Bom Supernova (bintang mini meledak, bola r 340 m) ·
+🌌 Big Bang (seluruh tumpukan lenyap).
+
+Bom kelas menengah dengan cara kerja berbeda: 🌋 Bom Napalm (api menjalar sampai r 16 m) ·
+🛩️ Serangan Bom Karpet (pesawat menjatuhkan 24 bom sepanjang 160 m) · 🌩️ Bom Badai Petir (36 sambaran petir menembus sampai tanah) ·
+👽 Sinar Penculik UFO (menyedot kolom jerami r 24 m dari puncak sampai tanah).
+
+Ledakan sebesar ini memakai `HaystackGrid.carve` (per kolom, tanpa listener per sel) supaya tidak membuat game tersendat;
+supernova & Big Bang mengikis bola sebagai kulit yang membesar per tick sehingga bebannya terbagi ke banyak frame.
 
 ## Cara kerjanya (singkat)
 

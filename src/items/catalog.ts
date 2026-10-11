@@ -26,16 +26,22 @@ export interface ConsumableSpec {
    * nuke = dijatuhkan dari langit + awan jamur, fan = tiup lapisan luar, buff = efek sementara.
    * Bom raksasa (semuanya dibayar 100%): mirv = rudal berisi beberapa hulu ledak nuklir,
    * orbital = batang tungsten dari satelit berderet sepanjang garis bidikan, antimatter = bola pemusnah,
-   * blackhole = lubang hitam yang menyedot & membesar, asteroid = kawah raksasa.
+   * blackhole = lubang hitam yang menyedot & membesar, asteroid = kawah raksasa,
+   * carpet = pesawat pembom menjatuhkan bom berderet, storm = awan badai menyambar petir acak,
+   * ufo = sinar penculik menyedot kolom jerami dari atas, asteroids = hujan asteroid,
+   * supernova = bintang mini yang meledak, bigbang = seluruh tumpukan lenyap.
+   * napalm = api menjalar melebar (dilempar, uang dipotong seperti bom biasa).
    */
-  kind: 'blast' | 'cluster' | 'drill' | 'nuke' | 'mirv' | 'orbital' | 'antimatter' | 'blackhole' | 'asteroid' | 'fan' | 'buff';
+  kind:
+    | 'blast' | 'cluster' | 'drill' | 'napalm' | 'nuke' | 'mirv' | 'orbital' | 'antimatter' | 'blackhole' | 'asteroid'
+    | 'carpet' | 'storm' | 'ufo' | 'asteroids' | 'supernova' | 'bigbang' | 'fan' | 'buff';
   radius?: number;
-  /** cluster/mirv/orbital: jumlah bom kecil / hulu ledak / batang. */
+  /** cluster/mirv/orbital/carpet/storm/asteroids: jumlah bom kecil / hulu ledak / batang / bom / sambaran / asteroid. */
   count?: number;
-  /** cluster/mirv: radius sebaran (m). orbital: panjang garis serangan (m). */
+  /** cluster/mirv/storm/asteroids: radius sebaran (m). orbital/carpet: panjang garis serangan (m). */
   spread?: number;
   buff?: BuffId;
-  /** buff: lama efek (detik). blackhole: lama menyedot (detik). */
+  /** buff: lama efek (detik). blackhole/ufo: lama menyedot, napalm: lama api menjalar, storm: lama badai (detik). */
   duration?: number;
 }
 
@@ -153,6 +159,14 @@ export const ITEMS: ItemDef[] = [
     desc: 'BOOM (r 5 m). Jarum tahan ledakan, tenang saja.', consumable: { kind: 'blast', radius: 5 } },
   { id: 'termobarik', name: 'Bom Termobarik', icon: '🔥', category: 'consumable', price: 1_200_000, growth: 1, max: MANY,
     desc: 'Bola api raksasa (r 8 m). Jerami di sekitarnya langsung jadi abu.', consumable: { kind: 'blast', radius: 8 } },
+  { id: 'napalm', name: 'Bom Napalm', icon: '🌋', category: 'consumable', price: 4_000_000, growth: 1, max: MANY,
+    desc: 'Lautan api lengket yang menjalar ke segala arah selama 5 detik sampai r 16 m, melahap jerami lapis demi lapis.', consumable: { kind: 'napalm', radius: 16, duration: 5 } },
+  { id: 'bom_karpet', name: 'Serangan Bom Karpet', icon: '🛩️', category: 'consumable', price: 18_000_000, growth: 1, max: MANY,
+    desc: 'Pesawat pembom melintas searah bidikanmu & menjatuhkan 24 bom (r 7 m) berderet sepanjang 160 m. Uang 100%.', consumable: { kind: 'carpet', radius: 7, count: 24, spread: 160 } },
+  { id: 'badai_petir', name: 'Bom Badai Petir', icon: '🌩️', category: 'consumable', price: 70_000_000, growth: 1, max: MANY,
+    desc: 'Awan badai raksasa muncul di atas target: 36 sambaran petir dalam radius 55 m selama 6 detik, tiap sambaran membolongi jerami sampai tanah (r 4,5 m). Uang 100%.', consumable: { kind: 'storm', radius: 4.5, count: 36, spread: 55, duration: 6 } },
+  { id: 'ufo', name: 'Sinar Penculik UFO', icon: '👽', category: 'consumable', price: 110_000_000, growth: 1, max: MANY,
+    desc: 'Piring terbang melayang di atas target & menyedot kolom jerami r 24 m dari puncak sampai tanah selama 6 detik. Jangan berdiri di bawah sinarnya! Uang 100%.', consumable: { kind: 'ufo', radius: 24, duration: 6 } },
   { id: 'nuklir', name: 'Bom Nuklir Jerami', icon: '☢️', category: 'consumable', price: 150_000_000, growth: 1, max: MANY,
     desc: 'Dijatuhkan dari langit. Meratakan jerami dalam radius 40 m dari tanah sampai puncak + awan jamur raksasa. Uang 100% (tidak dipotong seperti bom biasa). Larilah!', consumable: { kind: 'nuke', radius: 40 } },
   { id: 'mirv', name: 'Rudal Nuklir MIRV', icon: '🚀', category: 'consumable', price: 400_000_000, growth: 1, max: MANY,
@@ -165,8 +179,16 @@ export const ITEMS: ItemDef[] = [
     desc: 'Membuka lubang hitam yang melayang & menyedot jerami selama 7 detik, terus membesar sampai r 85 m. Jangan berdiri terlalu dekat! Uang 100%.', consumable: { kind: 'blackhole', radius: 85, duration: 7 } },
   { id: 'antimateri', name: 'Bom Antimateri', icon: '🔮', category: 'consumable', price: 1_500_000_000, growth: 1, max: MANY,
     desc: 'Materi bertemu antimateri: SEMUA jerami dalam bola r 100 m musnah tanpa sisa dalam satu kilatan ungu. Uang 100%.', consumable: { kind: 'antimatter', radius: 100 } },
+  { id: 'kobalt', name: 'Bom Kobalt Kiamat', icon: '☣️', category: 'consumable', price: 2_800_000_000, growth: 1, max: MANY,
+    desc: 'Senjata nuklir paling kotor yang pernah dirancang: kawah r 120 m + awan jamur setinggi langit. Uang 100%.', consumable: { kind: 'nuke', radius: 120 } },
   { id: 'asteroid', name: 'Asteroid Kiamat', icon: '🌑', category: 'consumable', price: 5_000_000_000, growth: 1, max: MANY,
     desc: 'Panggil asteroid raksasa dari luar angkasa. Kawah r 190 m — cukup untuk meratakan hampir seluruh tumpukan 9 miliar helai. Uang 100%. Selamat tinggal, jerami.', consumable: { kind: 'asteroid', radius: 190 } },
+  { id: 'hujan_asteroid', name: 'Hujan Asteroid', icon: '☄️', category: 'consumable', price: 14_000_000_000, growth: 1, max: MANY,
+    desc: 'Tujuh asteroid raksasa (kawah r 120 m) menghujani area selebar ±400 m satu per satu. Untuk tumpukan puluhan miliar helai. Uang 100%.', consumable: { kind: 'asteroids', radius: 120, count: 7, spread: 200 } },
+  { id: 'supernova', name: 'Bom Supernova', icon: '🌟', category: 'consumable', price: 30_000_000_000, growth: 1, max: MANY,
+    desc: 'Menyalakan bintang mini di atas tumpukan. Ia membengkak jadi raksasa merah, runtuh, lalu MELEDAK: bola r 340 m menghapus segalanya. Uang 100%.', consumable: { kind: 'supernova', radius: 340 } },
+  { id: 'big_bang', name: 'Big Bang', icon: '🌌', category: 'consumable', price: 80_000_000_000, growth: 1, max: MANY,
+    desc: 'Memulai ulang alam semesta. SELURUH tumpukan — sebesar apa pun — lenyap tanpa sisa, tinggal jarum di atas tanah. Uang 100%. Tombol curang paling mahal di dunia.', consumable: { kind: 'bigbang' } },
   { id: 'kipas', name: 'Kipas Angin', icon: '🪭', category: 'consumable', price: 12_000, growth: 1, max: MANY,
     desc: 'Meniup lapisan luar jerami dalam radius 4 m.', consumable: { kind: 'fan', radius: 4 } },
   { id: 'r_cepat', name: 'Ramuan Kecepatan', icon: '⚡', category: 'consumable', price: 2_000, growth: 1, max: MANY,

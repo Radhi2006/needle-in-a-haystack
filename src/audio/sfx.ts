@@ -171,6 +171,78 @@ export class Sfx {
     lfo.stop(t + dur + 0.5);
   }
 
+  /** Petir: retakan tajam lalu gemuruh rendah. */
+  thunder(near = 1): void {
+    this.noiseBurst(3200, 0.6, 0.5 * near, 0.18, 'highpass');
+    this.noiseBurst(900, 0.8, 0.45 * near, 0.35);
+    setTimeout(() => this.noiseBurst(140, 0.6, 0.5 * near, 1.6, 'lowpass'), 90);
+  }
+  /** Dengung piring terbang yang bergoyang. */
+  ufo(dur: number): void {
+    if (!this.ctx || !this.master) return;
+    const t = this.ctx.currentTime;
+    const o = this.ctx.createOscillator();
+    o.type = 'sine';
+    o.frequency.value = 330;
+    const lfo = this.ctx.createOscillator();
+    lfo.frequency.value = 6;
+    const depth = this.ctx.createGain();
+    depth.gain.value = 60;
+    lfo.connect(depth).connect(o.frequency);
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.12, t + 1);
+    g.gain.setValueAtTime(0.12, t + dur - 0.6);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(this.master);
+    o.start(t);
+    lfo.start(t);
+    o.stop(t + dur + 0.05);
+    lfo.stop(t + dur + 0.05);
+  }
+  /** Mesin pesawat lewat: mendekat, paling keras di tengah, lalu menjauh (nada turun). */
+  flyby(dur: number): void {
+    if (!this.ctx || !this.noise || !this.master) return;
+    const t = this.ctx.currentTime;
+    const src = this.ctx.createBufferSource();
+    src.buffer = this.noise;
+    src.loop = true;
+    const f = this.ctx.createBiquadFilter();
+    f.type = 'bandpass';
+    f.Q.value = 1.2;
+    f.frequency.setValueAtTime(700, t);
+    f.frequency.linearRampToValueAtTime(380, t + dur);
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.45, t + dur * 0.5);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(f).connect(g).connect(this.master);
+    src.start(t);
+    src.stop(t + dur + 0.05);
+    this.tone(140, dur, 'sawtooth', 0.05, 0, 90);
+  }
+  /** Kobaran api: desis + letupan kecil acak. */
+  fire(dur: number): void {
+    if (!this.ctx || !this.noise || !this.master) return;
+    const t = this.ctx.currentTime;
+    const src = this.ctx.createBufferSource();
+    src.buffer = this.noise;
+    src.loop = true;
+    const f = this.ctx.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.value = 900;
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.35, t + 0.3);
+    g.gain.setValueAtTime(0.35, t + dur);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 1.2);
+    src.connect(f).connect(g).connect(this.master);
+    src.start(t);
+    src.stop(t + dur + 1.3);
+    for (let i = 0; i < dur * 6; i++) {
+      setTimeout(() => this.noiseBurst(1800 + Math.random() * 2000, 2, 0.12, 0.06), Math.random() * dur * 1000);
+    }
+  }
   whoosh(): void {
     this.noiseBurst(900, 0.6, 0.3, 0.6, 'lowpass');
   }

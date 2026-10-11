@@ -232,7 +232,7 @@ export class TreasureHunt {
         qty = 1;
       } else {
         const budget = Math.max(6_000, s.stats.earned * 0.04) * treasureMult(s);
-        const pool = CONSUMABLES.filter((c) => c.id !== 'nuklir' && c.price <= budget).sort((a, b) => b.price - a.price).slice(0, 6);
+        const pool = CONSUMABLES.filter((c) => c.id !== 'nuklir' && c.id !== 'big_bang' && c.price <= budget).sort((a, b) => b.price - a.price).slice(0, 6);
         const c = pool[Math.floor(Math.random() * pool.length)];
         id = c.id;
         qty = Math.max(1, Math.min(5, Math.floor((budget / c.price) * (0.2 + Math.random() * 0.4))));
